@@ -1,79 +1,42 @@
-# Welcome to React Router!
+# Swim Meet Simulator
 
-A modern, production-ready template for building full-stack React applications using React Router.
+A tool for parsing swim meet psych sheet PDFs and visualizing entries by event, team, and swimmer.
 
 ## Features
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+- Upload psych sheet PDFs via drag-and-drop
+- Client-side PDF parsing (no data sent to servers)
+- Browse events, teams, and swimmers
+- View seed times and entry counts
 
-## Getting Started
+## Tech Stack
 
-### Installation
+- React Router 7 (Remix)
+- Cloudflare Workers
+- Tailwind CSS
+- pdf.js for client-side PDF parsing
 
-Install the dependencies:
+## Development
 
 ```bash
 npm install
-```
-
-### Development
-
-Start the development server with HMR:
-
-```bash
 npm run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
-
-## Previewing the Production Build
-
-Preview the production build locally:
-
-```bash
-npm run preview
-```
-
-## Building for Production
-
-Create a production build:
-
-```bash
-npm run build
-```
+Open http://localhost:5173
 
 ## Deployment
 
-Deployment is done using the Wrangler CLI.
-
-To build and deploy directly to production:
-
-```sh
+```bash
 npm run deploy
 ```
 
-To deploy a preview URL:
+## Project Structure
 
-```sh
-npx wrangler versions upload
 ```
-
-You can then promote a version to production after verification or roll it out progressively.
-
-```sh
-npx wrangler versions deploy
+app/
+  context/     # React context for meet data
+  lib/         # PDF extraction and parsing
+  types/       # TypeScript types for meet data
+  routes/      # Page components
 ```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.

@@ -1,7 +1,9 @@
 .DS_Store
 .env
+.env.*
 /node_modules/
 *.tsbuildinfo
+*.log
 
 # React Router
 /.react-router/
@@ -12,4 +14,9 @@
 .wrangler
 .dev.vars*
 worker-configuration.d.ts
+
+# IDE
+.idea/
+.vscode/
+*.swp
 
