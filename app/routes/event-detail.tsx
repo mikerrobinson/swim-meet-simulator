@@ -54,17 +54,17 @@ export default function EventDetail() {
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Seed
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 {event.isRelay ? "Team" : "Name"}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 {event.isRelay ? "Relay" : "Team"}
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Seed Time
+              <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Time
               </th>
             </tr>
           </thead>
@@ -82,10 +82,10 @@ export default function EventDetail() {
                   key={entry.id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {entry.seedTimeMs !== undefined ? index + 1 : "-"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4">
                     {event.isRelay ? (
                       team ? (
                         <Link
@@ -108,7 +108,7 @@ export default function EventDetail() {
                       <span className="text-sm text-gray-500">Unknown</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4 text-sm text-gray-500 dark:text-gray-400">
                     {event.isRelay ? (
                       entry.relayLetter || "-"
                     ) : team ? (
@@ -122,7 +122,7 @@ export default function EventDetail() {
                       "-"
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
                     {entry.seedTime}
                   </td>
                 </tr>

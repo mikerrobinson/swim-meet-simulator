@@ -48,13 +48,13 @@ export default function Swimmers() {
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Name
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Team
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Entries
               </th>
             </tr>
@@ -68,7 +68,7 @@ export default function Swimmers() {
                   key={swimmer.id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4">
                     <Link
                       to={`/swimmers/${swimmer.id}`}
                       className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
@@ -76,7 +76,7 @@ export default function Swimmers() {
                       {swimmer.name}
                     </Link>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4 text-sm text-gray-500 dark:text-gray-400">
                     {team ? (
                       <Link
                         to={`/teams/${team.id}`}
@@ -88,7 +88,7 @@ export default function Swimmers() {
                       "-"
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
                     {entries.length}
                   </td>
                 </tr>

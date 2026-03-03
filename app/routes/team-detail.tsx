@@ -48,7 +48,7 @@ export default function TeamDetail() {
 
       {/* Swimmers */}
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow overflow-hidden mb-8">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="px-2 sm:px-4 py-4 border-b border-gray-200 dark:border-gray-800">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Swimmers
           </h3>
@@ -56,10 +56,10 @@ export default function TeamDetail() {
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Name
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Entries
               </th>
             </tr>
@@ -72,7 +72,7 @@ export default function TeamDetail() {
                   key={swimmer.id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4">
                     <Link
                       to={`/swimmers/${swimmer.id}`}
                       className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
@@ -80,7 +80,7 @@ export default function TeamDetail() {
                       {swimmer.name}
                     </Link>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
                     {entries.length}
                   </td>
                 </tr>
@@ -90,7 +90,7 @@ export default function TeamDetail() {
         </table>
 
         {swimmers.length === 0 && (
-          <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+          <div className="px-2 sm:px-4 py-12 text-center text-gray-500 dark:text-gray-400">
             No swimmers found for this team.
           </div>
         )}
@@ -99,7 +99,7 @@ export default function TeamDetail() {
       {/* Relay Entries */}
       {relayEntries.length > 0 && (
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+          <div className="px-2 sm:px-4 py-4 border-b border-gray-200 dark:border-gray-800">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Relay Entries
             </h3>
@@ -107,14 +107,14 @@ export default function TeamDetail() {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Event
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Relay
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Seed Time
+                <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Time
                 </th>
               </tr>
             </thead>
@@ -127,7 +127,7 @@ export default function TeamDetail() {
                     key={entry.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-4 py-3 sm:py-4">
                       <Link
                         to={`/events/${event.id}`}
                         className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
@@ -135,10 +135,10 @@ export default function TeamDetail() {
                         {event.distance} {event.stroke}
                       </Link>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {entry.relayLetter || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
+                    <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
                       {entry.seedTime}
                     </td>
                   </tr>

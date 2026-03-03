@@ -49,19 +49,20 @@ export default function Scores() {
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-12">
+              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10 sm:w-12">
                 Rank
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Team
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">
-                Individual
+              <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <span className="sm:hidden">Indiv</span>
+                <span className="hidden sm:inline">Individual</span>
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">
+              <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Relay
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">
+              <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Total
               </th>
             </tr>
@@ -121,9 +122,9 @@ function TeamRow({
         className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
         onClick={onToggle}
       >
-        <td className="px-4 py-4">
+        <td className="px-2 sm:px-4 py-3 sm:py-4">
           <span
-            className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+            className={`inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full text-sm font-medium ${
               rank === 1
                 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
                 : rank === 2
@@ -136,8 +137,8 @@ function TeamRow({
             {rank}
           </span>
         </td>
-        <td className="px-4 py-4">
-          <div className="flex items-center gap-3">
+        <td className="px-2 sm:px-4 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
               <svg
                 className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
@@ -153,8 +154,8 @@ function TeamRow({
                 />
               </svg>
             </button>
-            <div>
-              <p className="font-medium text-gray-900 dark:text-white">
+            <div className="min-w-0">
+              <p className="font-medium text-gray-900 dark:text-white truncate">
                 {score.team.name}
               </p>
               {score.team.abbreviation && (
@@ -165,21 +166,21 @@ function TeamRow({
             </div>
           </div>
         </td>
-        <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-400">
+        <td className="px-2 sm:px-4 py-3 sm:py-4 text-right text-gray-600 dark:text-gray-400">
           {score.individualPoints}
         </td>
-        <td className="px-4 py-4 text-right text-gray-600 dark:text-gray-400">
+        <td className="px-2 sm:px-4 py-3 sm:py-4 text-right text-gray-600 dark:text-gray-400">
           {score.relayPoints}
         </td>
-        <td className="px-4 py-4 text-right">
-          <div className="flex items-center justify-end gap-3">
-            <div className="w-24 h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+        <td className="px-2 sm:px-4 py-3 sm:py-4 text-right">
+          <div className="flex items-center justify-end gap-2 sm:gap-3">
+            <div className="hidden sm:block w-24 h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-500 rounded-full"
                 style={{ width: `${barWidth}%` }}
               />
             </div>
-            <span className="font-semibold text-gray-900 dark:text-white w-12 text-right">
+            <span className="font-semibold text-gray-900 dark:text-white">
               {score.totalPoints}
             </span>
           </div>
@@ -189,8 +190,8 @@ function TeamRow({
       {/* Expanded breakdown */}
       {isExpanded && (
         <tr>
-          <td colSpan={5} className="bg-gray-50 dark:bg-gray-800/50 px-4 py-4">
-            <div className="pl-12">
+          <td colSpan={5} className="bg-gray-50 dark:bg-gray-800/50 px-2 sm:px-4 py-3 sm:py-4">
+            <div className="pl-8 sm:pl-12">
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                 Event Breakdown
               </h4>

@@ -55,7 +55,7 @@ export default function SwimmerDetail() {
       </div>
 
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="px-2 sm:px-4 py-4 border-b border-gray-200 dark:border-gray-800">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Entries ({entries.length})
           </h3>
@@ -63,14 +63,14 @@ export default function SwimmerDetail() {
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Event #
+              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                #
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Event
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Seed Time
+              <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Time
               </th>
             </tr>
           </thead>
@@ -83,21 +83,21 @@ export default function SwimmerDetail() {
                   key={entry.id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {event.number}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4">
                     <Link
                       to={`/events/${event.id}`}
                       className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                     >
                       {event.distance} {event.stroke}
                     </Link>
-                    <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                      ({event.gender === "M" ? "Boys" : "Girls"} {event.ageGroup})
+                    <span className="ml-1 sm:ml-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                      ({event.gender === "M" ? "B" : "G"} {event.ageGroup})
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
+                  <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-sm text-right font-mono text-gray-900 dark:text-white">
                     {entry.seedTime}
                   </td>
                 </tr>
@@ -107,7 +107,7 @@ export default function SwimmerDetail() {
         </table>
 
         {entries.length === 0 && (
-          <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+          <div className="px-2 sm:px-4 py-12 text-center text-gray-500 dark:text-gray-400">
             No entries for this swimmer.
           </div>
         )}
