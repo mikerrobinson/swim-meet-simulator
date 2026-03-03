@@ -9,5 +9,6 @@ export default [
     route("teams/:teamId", "routes/team-detail.tsx"),
     route("swimmers", "routes/swimmers.tsx"),
     route("swimmers/:swimmerId", "routes/swimmer-detail.tsx"),
+    route("scores", "routes/scores.tsx"),
   ]),
 ] satisfies RouteConfig;

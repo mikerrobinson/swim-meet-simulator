@@ -1,15 +1,15 @@
 /**
- * Parser for swim meet psych sheet PDFs
+ * Parser for HY-TEK Meet Manager psych sheet PDFs
  *
- * This will need refinement once we see actual PDF samples.
- * The general structure expected:
- * - 3 columns per page (data flows top-to-bottom, then left-to-right)
- * - Events are sections with headers: distance, stroke, gender, age group
- * - Each entry has: swimmer name, team, entry time
- * - Pages have headers/footers
+ * Format patterns:
+ * - Event headers: "#[number] [Gender] [Age Group] [Distance] Yard [Stroke]"
+ * - Continuation: "#9 ... (Girls 10 & Under 100 Yard Butterfly)"
+ * - Individual entries: "[Rank] [Name, Last First MI] [Age] [Team] [Time][Suffix?]"
+ * - Relay entries: "[Rank] [Team] [Letter] [Time]"
+ * - Time suffixes: L = long course, Y = bonus entry
  */
 
-import type { ExtractedPdf, PageContent, TextItem } from "./pdf-extractor";
+import type { ExtractedPdf } from "./pdf-extractor";
 import {
   type Meet,
   type Event,
@@ -18,14 +18,14 @@ import {
   type Swimmer,
   type Stroke,
   type Gender,
+  type TimeSuffix,
   createEmptyMeet,
   parseTimeToMs,
+  generateId,
 } from "~/types/meet";
 
 /**
  * Parse extracted PDF content into a Meet structure
- *
- * TODO: This is a skeleton that will need to be refined based on actual PDF format
  */
 export function parsePsychSheet(
   extracted: ExtractedPdf,
@@ -33,26 +33,39 @@ export function parsePsychSheet(
 ): Meet {
   const meet = createEmptyMeet(meetName);
 
-  // For now, just do a simple text-based parse
-  // This will be refined once we see the actual format
   const lines = extracted.fullText.split("\n").filter((line) => line.trim());
 
   let currentEvent: Event | null = null;
-  let eventNumber = 0;
+  let sawColumnHeader = false;
+  let parsedMeetMetadata = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
 
-    // Skip page breaks and empty lines
+    // Skip page breaks
     if (trimmed.startsWith("---") || trimmed === "") continue;
 
-    // Try to detect event headers
+    // Try to parse meet metadata from header (first occurrence)
+    if (!parsedMeetMetadata) {
+      const metadata = tryParseMeetHeader(trimmed);
+      if (metadata) {
+        if (metadata.hostTeam) meet.hostTeam = metadata.hostTeam;
+        if (metadata.meetName) meet.name = metadata.meetName;
+        if (metadata.date) meet.date = metadata.date;
+        parsedMeetMetadata = true;
+        continue;
+      }
+    }
+
+    // Skip common header/footer lines
+    if (isHeaderOrFooterLine(trimmed)) continue;
+
+    // Try to detect event headers (primary or continuation)
     const eventMatch = tryParseEventHeader(trimmed);
     if (eventMatch) {
-      eventNumber++;
       currentEvent = {
-        id: crypto.randomUUID(),
-        number: eventMatch.number ?? eventNumber,
+        id: generateId(),
+        number: eventMatch.number,
         distance: eventMatch.distance,
         stroke: eventMatch.stroke,
         gender: eventMatch.gender,
@@ -60,55 +73,52 @@ export function parsePsychSheet(
         isRelay: eventMatch.isRelay,
       };
       meet.events.set(currentEvent.id, currentEvent);
+      sawColumnHeader = false;
       continue;
     }
 
-    // Try to parse an entry line
-    if (currentEvent) {
-      const entryMatch = tryParseEntryLine(trimmed);
-      if (entryMatch) {
-        // Get or create team
-        let team = findTeamByName(meet, entryMatch.teamName);
-        if (!team) {
-          team = {
-            id: crypto.randomUUID(),
-            name: entryMatch.teamName,
-          };
-          meet.teams.set(team.id, team);
-        }
+    // Skip "Meet Qualifying:" lines
+    if (trimmed.toLowerCase().startsWith("meet qualifying:")) continue;
 
-        if (currentEvent.isRelay) {
-          // Relay entry
+    // Skip column headers
+    if (isColumnHeader(trimmed)) {
+      sawColumnHeader = true;
+      continue;
+    }
+
+    // Try to parse entries if we have a current event
+    if (currentEvent && sawColumnHeader) {
+      if (currentEvent.isRelay) {
+        const relayEntry = tryParseRelayEntry(trimmed);
+        if (relayEntry) {
+          const team = getOrCreateTeam(meet, relayEntry.teamAbbr);
           const entry: Entry = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             eventId: currentEvent.id,
-            seedTime: entryMatch.time,
-            seedTimeMs: parseTimeToMs(entryMatch.time),
+            seedTime: relayEntry.time,
+            seedTimeMs: parseTimeToMs(relayEntry.time),
+            timeSuffix: relayEntry.timeSuffix,
             teamId: team.id,
-            relayLetter: entryMatch.relayLetter,
+            relayLetter: relayEntry.relayLetter,
           };
           meet.entries.push(entry);
-        } else {
-          // Individual entry - get or create swimmer
-          let swimmer = findSwimmerByNameAndTeam(
+        }
+      } else {
+        const individualEntry = tryParseIndividualEntry(trimmed);
+        if (individualEntry) {
+          const team = getOrCreateTeam(meet, individualEntry.teamAbbr);
+          const swimmer = getOrCreateSwimmer(
             meet,
-            entryMatch.swimmerName,
-            team.id
+            individualEntry.swimmerName,
+            team.id,
+            individualEntry.age
           );
-          if (!swimmer) {
-            swimmer = {
-              id: crypto.randomUUID(),
-              name: entryMatch.swimmerName,
-              teamId: team.id,
-            };
-            meet.swimmers.set(swimmer.id, swimmer);
-          }
-
           const entry: Entry = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             eventId: currentEvent.id,
-            seedTime: entryMatch.time,
-            seedTimeMs: parseTimeToMs(entryMatch.time),
+            seedTime: individualEntry.time,
+            seedTimeMs: parseTimeToMs(individualEntry.time),
+            timeSuffix: individualEntry.timeSuffix,
             swimmerId: swimmer.id,
           };
           meet.entries.push(entry);
@@ -120,8 +130,67 @@ export function parsePsychSheet(
   return meet;
 }
 
+interface MeetMetadata {
+  hostTeam?: string;
+  meetName?: string;
+  date?: string;
+}
+
+/**
+ * Try to parse meet metadata from header line
+ * Example: "Flying Fish Arizona Swim Team HY-TEK's MEET MANAGER 8.0 - 12:52 PM 3/2/2026 Page 1"
+ * Or: "2026 AZSI SC Age Group State Championship - 3/5/2026 to 3/8/2026"
+ */
+function tryParseMeetHeader(line: string): MeetMetadata | null {
+  // Check for HY-TEK line (contains host team)
+  if (line.includes("HY-TEK")) {
+    const match = line.match(/^(.+?)\s+HY-TEK/);
+    if (match) {
+      return { hostTeam: match[1].trim() };
+    }
+  }
+
+  // Check for meet name with dates
+  const dateMatch = line.match(
+    /^(.+?)\s+-\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+to\s+(\d{1,2}\/\d{1,2}\/\d{4})$/
+  );
+  if (dateMatch) {
+    return {
+      meetName: dateMatch[1].trim(),
+      date: `${dateMatch[2]} to ${dateMatch[3]}`,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Check if line is a header/footer we should skip
+ */
+function isHeaderOrFooterLine(line: string): boolean {
+  const lower = line.toLowerCase();
+  return (
+    lower.includes("hy-tek") ||
+    lower === "psych sheet" ||
+    /^page\s+\d+/.test(lower) ||
+    // Skip lines that are just the meet name repeated
+    (lower.includes("championship") && !lower.startsWith("#"))
+  );
+}
+
+/**
+ * Check if line is a column header
+ */
+function isColumnHeader(line: string): boolean {
+  const lower = line.toLowerCase();
+  return (
+    (lower.includes("name") && lower.includes("team") && lower.includes("time")) ||
+    (lower.includes("team") && lower.includes("relay") && lower.includes("time"))
+  );
+}
+
 interface EventHeaderMatch {
-  number?: number;
+  number: number;
   distance: number;
   stroke: Stroke;
   gender: Gender;
@@ -130,51 +199,85 @@ interface EventHeaderMatch {
 }
 
 /**
- * Try to parse a line as an event header
- * Examples:
- * - "Event 1 Girls 11-12 200 Yard Medley Relay"
- * - "Girls 13-14 100 Yard Freestyle"
- *
- * TODO: Refine regex patterns based on actual PDF format
+ * Parse event header - handles both primary and continuation formats
+ * Primary: "#1 Girls 10 & Under 500 Yard Freestyle"
+ * Continuation: "#9 ... (Girls 10 & Under 100 Yard Butterfly)"
  */
 function tryParseEventHeader(line: string): EventHeaderMatch | null {
-  const upper = line.toUpperCase();
+  // Must start with #
+  if (!line.startsWith("#")) return null;
 
-  // Check for common event indicators
-  const hasEvent = upper.includes("EVENT");
-  const hasYard = upper.includes("YARD") || upper.includes("YD");
-  const hasMeter = upper.includes("METER") || upper.includes("MTR");
+  // Try continuation format first: "#9 ... (Girls 10 & Under 100 Yard Butterfly)"
+  const continuationMatch = line.match(
+    /^#(\d+)\s+\.\.\.\s+\((.+)\)$/
+  );
+  if (continuationMatch) {
+    const eventNumber = parseInt(continuationMatch[1], 10);
+    const innerContent = continuationMatch[2];
+    return parseEventDetails(innerContent, eventNumber);
+  }
 
-  if (!hasYard && !hasMeter) return null;
+  // Try primary format: "#1 Girls 10 & Under 500 Yard Freestyle"
+  const primaryMatch = line.match(/^#(\d+)\s+(.+)$/);
+  if (primaryMatch) {
+    const eventNumber = parseInt(primaryMatch[1], 10);
+    const content = primaryMatch[2];
+    return parseEventDetails(content, eventNumber);
+  }
 
-  // Try to extract components
-  const numberMatch = line.match(/EVENT\s*#?\s*(\d+)/i);
-  const distanceMatch = line.match(/(\d+)\s*(YARD|YD|METER|MTR)/i);
-  const genderMatch = line.match(/\b(GIRLS?|BOYS?|WOMEN|MEN|MIXED)\b/i);
-  const ageGroupMatch = line.match(/\b(\d{1,2}-\d{1,2}|OPEN|SENIOR|JR|SR)\b/i);
+  return null;
+}
 
-  if (!distanceMatch || !genderMatch) return null;
+/**
+ * Parse event details from the content after event number
+ */
+function parseEventDetails(
+  content: string,
+  eventNumber: number
+): EventHeaderMatch | null {
+  const upper = content.toUpperCase();
 
+  // Must contain Yard or Meter
+  if (!upper.includes("YARD") && !upper.includes("METER")) return null;
+
+  // Extract distance
+  const distanceMatch = content.match(/(\d+)\s*(YARD|METER)/i);
+  if (!distanceMatch) return null;
   const distance = parseInt(distanceMatch[1], 10);
-  const gender = parseGender(genderMatch[1]);
+
+  // Determine if relay
   const isRelay = upper.includes("RELAY");
+
+  // Parse gender
+  let gender: Gender = "Mixed";
+  if (upper.includes("GIRL") || upper.includes("WOMEN")) {
+    gender = "F";
+  } else if (upper.includes("BOY") || upper.includes("MEN")) {
+    gender = "M";
+  } else if (upper.includes("MIXED")) {
+    gender = "Mixed";
+  }
+
+  // Parse age group - look for patterns like "10 & Under", "11-12", "13-14"
+  let ageGroup: string | undefined;
+  const ageGroupMatch = content.match(
+    /(\d{1,2}\s*&\s*Under|\d{1,2}-\d{1,2}|\d{1,2}\s*&\s*Under)/i
+  );
+  if (ageGroupMatch) {
+    ageGroup = ageGroupMatch[1];
+  }
+
+  // Parse stroke
   const stroke = parseStroke(upper, isRelay);
 
   return {
-    number: numberMatch ? parseInt(numberMatch[1], 10) : undefined,
+    number: eventNumber,
     distance,
     stroke,
     gender,
-    ageGroup: ageGroupMatch?.[1],
+    ageGroup,
     isRelay,
   };
-}
-
-function parseGender(str: string): Gender {
-  const upper = str.toUpperCase();
-  if (upper.includes("GIRL") || upper.includes("WOMEN")) return "F";
-  if (upper.includes("BOY") || upper.includes("MEN")) return "M";
-  return "Mixed";
 }
 
 function parseStroke(line: string, isRelay: boolean): Stroke {
@@ -185,88 +288,118 @@ function parseStroke(line: string, isRelay: boolean): Stroke {
   if (line.includes("BACK")) return "Backstroke";
   if (line.includes("BREAST")) return "Breaststroke";
   if (line.includes("FLY") || line.includes("BUTTER")) return "Butterfly";
-  if (line.includes("IM") || line.includes("INDIVIDUAL MEDLEY")) return "IM";
+  if (line.includes("INDIVIDUAL MEDLEY") || /\bIM\b/.test(line)) return "IM";
   return "Freestyle";
 }
 
-interface EntryLineMatch {
+interface IndividualEntryMatch {
+  rank: number;
   swimmerName: string;
-  teamName: string;
+  age: number;
+  teamAbbr: string;
   time: string;
-  relayLetter?: string;
+  timeSuffix?: TimeSuffix;
 }
 
 /**
- * Try to parse a line as an entry
- *
- * TODO: This needs significant refinement based on actual PDF format
- * Common formats might be:
- * - "1 Smith, John              TEAM  1:23.45"
- * - "Smith, John | Team Name | 1:23.45"
+ * Parse individual entry line
+ * Format: "[Rank] [Name, Last First MI] [Age] [Team] [Time][Suffix?]"
+ * Examples:
+ *   "1 Rial, Siobhan D 10 FAST-AZ 5:57.81"
+ *   "13 Montagnino, Hudson L 12 BEAR-AZ 21:09.71L"
  */
-function tryParseEntryLine(line: string): EntryLineMatch | null {
-  // Look for time pattern at the end: M:SS.ss or SS.ss or NT
-  const timePattern = /(\d{1,2}:\d{2}\.\d{2}|\d{1,2}\.\d{2}|NT)\s*$/i;
-  const timeMatch = line.match(timePattern);
+function tryParseIndividualEntry(line: string): IndividualEntryMatch | null {
+  // Pattern: rank, name (with comma), age, team abbreviation, time
+  // Name format is "Last, First MI" where MI is optional
+  const match = line.match(
+    /^(\d+)\s+([A-Za-z][A-Za-z'\-\s]+,\s*[A-Za-z][A-Za-z'\-\s]*(?:\s+[A-Z])?)\s+(\d{1,2})\s+([A-Z0-9]+-[A-Z]{2})\s+([\d:\.]+|NT)([LY])?$/
+  );
 
-  if (!timeMatch) return null;
-
-  const time = timeMatch[1];
-  const beforeTime = line.slice(0, timeMatch.index).trim();
-
-  // Try to split the remaining content into name and team
-  // This is very format-dependent and will need refinement
-  // Try common separators
-  const parts = beforeTime.split(/\s{2,}|\t|[|]/);
-  const filtered = parts.map((p) => p.trim()).filter((p) => p.length > 0);
-
-  if (filtered.length < 2) return null;
-
-  // Remove leading rank number if present
-  let nameIdx = 0;
-  if (/^\d+$/.test(filtered[0])) {
-    nameIdx = 1;
-  }
-
-  // Check for relay letter pattern (e.g., "A", "B", "C" as a separate field)
-  let relayLetter: string | undefined;
-  const lastPart = filtered[filtered.length - 1];
-  if (/^[A-Z]$/.test(lastPart)) {
-    relayLetter = lastPart;
-    filtered.pop();
-  }
-
-  if (filtered.length < nameIdx + 2) return null;
+  if (!match) return null;
 
   return {
-    swimmerName: filtered[nameIdx],
-    teamName: filtered[nameIdx + 1],
-    time,
-    relayLetter,
+    rank: parseInt(match[1], 10),
+    swimmerName: match[2].trim(),
+    age: parseInt(match[3], 10),
+    teamAbbr: match[4],
+    time: match[5],
+    timeSuffix: match[6] as TimeSuffix | undefined,
   };
 }
 
-function findTeamByName(meet: Meet, name: string): Team | undefined {
+interface RelayEntryMatch {
+  rank: number;
+  teamAbbr: string;
+  relayLetter: string;
+  time: string;
+  timeSuffix?: TimeSuffix;
+}
+
+/**
+ * Parse relay entry line
+ * Format: "[Rank] [Team] [Letter] [Time]"
+ * Example: "1 PSC-AZ A 3:48.87"
+ */
+function tryParseRelayEntry(line: string): RelayEntryMatch | null {
+  const match = line.match(
+    /^(\d+)\s+([A-Z0-9]+-[A-Z]{2})\s+([A-Z])\s+([\d:\.]+|NT)([LY])?$/
+  );
+
+  if (!match) return null;
+
+  return {
+    rank: parseInt(match[1], 10),
+    teamAbbr: match[2],
+    relayLetter: match[3],
+    time: match[4],
+    timeSuffix: match[5] as TimeSuffix | undefined,
+  };
+}
+
+/**
+ * Get or create a team by abbreviation
+ */
+function getOrCreateTeam(meet: Meet, abbr: string): Team {
   for (const team of meet.teams.values()) {
-    if (team.name.toLowerCase() === name.toLowerCase()) {
+    if (team.abbreviation === abbr || team.name === abbr) {
       return team;
     }
   }
-  return undefined;
+
+  const team: Team = {
+    id: generateId(),
+    name: abbr,
+    abbreviation: abbr,
+  };
+  meet.teams.set(team.id, team);
+  return team;
 }
 
-function findSwimmerByNameAndTeam(
+/**
+ * Get or create a swimmer by name and team
+ */
+function getOrCreateSwimmer(
   meet: Meet,
   name: string,
-  teamId: string
-): Swimmer | undefined {
+  teamId: string,
+  age: number
+): Swimmer {
   for (const swimmer of meet.swimmers.values()) {
-    if (
-      swimmer.name.toLowerCase() === name.toLowerCase() &&
-      swimmer.teamId === teamId
-    ) {
+    if (swimmer.name === name && swimmer.teamId === teamId) {
+      // Update age if we have a more recent value
+      if (age && (!swimmer.age || age > swimmer.age)) {
+        swimmer.age = age;
+      }
       return swimmer;
     }
   }
-  return undefined;
+
+  const swimmer: Swimmer = {
+    id: generateId(),
+    name,
+    teamId,
+    age,
+  };
+  meet.swimmers.set(swimmer.id, swimmer);
+  return swimmer;
 }

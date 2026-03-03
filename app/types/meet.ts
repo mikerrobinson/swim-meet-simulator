@@ -2,6 +2,21 @@
  * Core data types for swim meet representation
  */
 
+/**
+ * Generate a UUID with fallback for browsers without crypto.randomUUID
+ */
+export function generateId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export type Gender = "M" | "F" | "Mixed";
 
 export type Stroke =
@@ -23,6 +38,7 @@ export interface Swimmer {
   id: string;
   name: string;
   teamId: string;
+  age?: number;
 }
 
 export interface Event {
@@ -35,11 +51,14 @@ export interface Event {
   isRelay: boolean;
 }
 
+export type TimeSuffix = "L" | "Y"; // L = long course conversion, Y = bonus entry
+
 export interface Entry {
   id: string;
   eventId: string;
   seedTime: string; // Keep as string to preserve formatting like "1:23.45" or "NT"
   seedTimeMs?: number; // Parsed time in milliseconds for sorting (undefined for NT)
+  timeSuffix?: TimeSuffix; // L = long course, Y = bonus/yards entry
 
   // For individual events
   swimmerId?: string;
@@ -54,6 +73,7 @@ export interface Meet {
   name: string;
   date?: string;
   location?: string;
+  hostTeam?: string;
 
   // Indexed collections for easy lookup
   teams: Map<string, Team>;
@@ -67,7 +87,7 @@ export interface Meet {
  */
 export function createEmptyMeet(name: string): Meet {
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     name,
     teams: new Map(),
     swimmers: new Map(),

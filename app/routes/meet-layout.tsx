@@ -21,6 +21,7 @@ export default function MeetLayout() {
     { to: "/events", label: "Events", count: meet.events.size },
     { to: "/teams", label: "Teams", count: meet.teams.size },
     { to: "/swimmers", label: "Swimmers", count: meet.swimmers.size },
+    { to: "/scores", label: "Scores" },
   ];
 
   return (
@@ -76,9 +77,11 @@ export default function MeetLayout() {
                 }
               >
                 {item.label}
-                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                  {item.count}
-                </span>
+                {item.count !== undefined && (
+                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    {item.count}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>
