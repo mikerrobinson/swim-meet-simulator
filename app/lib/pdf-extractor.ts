@@ -34,7 +34,15 @@ export interface ExtractedPdf {
  */
 export async function extractPdfText(file: File): Promise<ExtractedPdf> {
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjsLib.getDocument({
+    data: new Uint8Array(arrayBuffer),
+    // Disable streaming features for Safari/iOS compatibility
+    disableStream: true,
+    disableAutoFetch: true,
+    useWorkerFetch: false,
+    isEvalSupported: false,
+    useSystemFonts: true,
+  }).promise;
 
   const pages: PageContent[] = [];
   const textParts: string[] = [];
