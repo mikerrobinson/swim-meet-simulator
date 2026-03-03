@@ -80,6 +80,9 @@ export function parsePsychSheet(
     // Skip "Meet Qualifying:" lines
     if (trimmed.toLowerCase().startsWith("meet qualifying:")) continue;
 
+    // Skip qualifying time standard lines (e.g., "4:58.19 13-14 A")
+    if (isQualifyingTimeLine(trimmed)) continue;
+
     // Skip column headers
     if (isColumnHeader(trimmed)) {
       sawColumnHeader = true;
@@ -187,6 +190,14 @@ function isColumnHeader(line: string): boolean {
     (lower.includes("name") && lower.includes("team") && lower.includes("time")) ||
     (lower.includes("team") && lower.includes("relay") && lower.includes("time"))
   );
+}
+
+/**
+ * Check if line is a qualifying time standard line
+ * Examples: "4:58.19 13-14 A", "32.69 A", "6:08.49 13-14 B"
+ */
+function isQualifyingTimeLine(line: string): boolean {
+  return /^[\d:\.]+\s+(?:\d{1,2}-\d{1,2}\s+)?[ABS]$/.test(line);
 }
 
 interface EventHeaderMatch {
@@ -303,28 +314,64 @@ interface IndividualEntryMatch {
 
 /**
  * Parse individual entry line
- * Format: "[Rank] [Name, Last First MI] [Age] [Team] [Time][Suffix?]"
+ * Format: "[Rank] [Name, Last First MI] [Age] [Team] [Time][Suffix?] [Qualifier?]"
  * Examples:
  *   "1 Rial, Siobhan D 10 FAST-AZ 5:57.81"
  *   "13 Montagnino, Hudson L 12 BEAR-AZ 21:09.71L"
+ *   "1 Sarracino, Sienna K 16 PSC-AZ 4:56.25 B" (with trailing qualifier)
+ *   "6 Domingos, Scarlett E13 HEAT-AZ 5:51.20 B" (concatenated MI+age)
  */
 function tryParseIndividualEntry(line: string): IndividualEntryMatch | null {
-  // Pattern: rank, name (with comma), age, team abbreviation, time
-  // Name format is "Last, First MI" where MI is optional
-  const match = line.match(
-    /^(\d+)\s+([A-Za-z][A-Za-z'\-\s]+,\s*[A-Za-z][A-Za-z'\-\s]*(?:\s+[A-Z])?)\s+(\d{1,2})\s+([A-Z0-9]+-[A-Z]{2})\s+([\d:\.]+|NT)([LY])?$/
+  // First, try to match the overall structure:
+  // rank, name+age combo, team, time, optional suffix, optional qualifier (A/B/S, possibly BB)
+  const overallMatch = line.match(
+    /^(\d+)\s+(.+?)\s+([A-Z0-9]+-[A-Z]{2})\s+([\d:\.]+|NT)([LYSB])?(?:\s+[ABS]{1,2})?$/
   );
 
-  if (!match) return null;
+  if (!overallMatch) return null;
 
-  return {
-    rank: parseInt(match[1], 10),
-    swimmerName: match[2].trim(),
-    age: parseInt(match[3], 10),
-    teamAbbr: match[4],
-    time: match[5],
-    timeSuffix: match[6] as TimeSuffix | undefined,
-  };
+  const rank = parseInt(overallMatch[1], 10);
+  const nameAgePart = overallMatch[2].trim();
+  const teamAbbr = overallMatch[3];
+  const time = overallMatch[4];
+  const timeSuffix = overallMatch[5] as TimeSuffix | undefined;
+
+  // Now parse nameAgePart to extract name and age
+  // Pattern 1: "Last, First MI age" (space before age)
+  // e.g., "Sarracino, Sienna K 16" or "Zela, Priam 9"
+  let nameMatch = nameAgePart.match(
+    /^([A-Za-z][A-Za-z'\-\.\s]+,\s*[A-Za-z][A-Za-z'\-\.\s]*(?:\s+[A-Z])?)\s+(\d{1,2})$/
+  );
+
+  if (nameMatch) {
+    return {
+      rank,
+      swimmerName: nameMatch[1].trim(),
+      age: parseInt(nameMatch[2], 10),
+      teamAbbr,
+      time,
+      timeSuffix,
+    };
+  }
+
+  // Pattern 2: "Last, First MIage" (concatenated MI+age, no space)
+  // e.g., "Domingos, Scarlett E13" or "Singbartl, Karolina M11"
+  nameMatch = nameAgePart.match(
+    /^([A-Za-z][A-Za-z'\-\.\s]+,\s*[A-Za-z][A-Za-z'\-\.\s]*)\s?([A-Z])(\d{1,2})$/
+  );
+
+  if (nameMatch) {
+    return {
+      rank,
+      swimmerName: (nameMatch[1].trim() + " " + nameMatch[2]).trim(),
+      age: parseInt(nameMatch[3], 10),
+      teamAbbr,
+      time,
+      timeSuffix,
+    };
+  }
+
+  return null;
 }
 
 interface RelayEntryMatch {
@@ -342,7 +389,7 @@ interface RelayEntryMatch {
  */
 function tryParseRelayEntry(line: string): RelayEntryMatch | null {
   const match = line.match(
-    /^(\d+)\s+([A-Z0-9]+-[A-Z]{2})\s+([A-Z])\s+([\d:\.]+|NT)([LY])?$/
+    /^(\d+)\s+([A-Z0-9]+-[A-Z]{2})\s+([A-Z])\s+([\d:\.]+|NT)([LYSB])?$/
   );
 
   if (!match) return null;

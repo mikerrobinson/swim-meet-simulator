@@ -51,7 +51,7 @@ export interface Event {
   isRelay: boolean;
 }
 
-export type TimeSuffix = "L" | "Y"; // L = long course conversion, Y = bonus entry
+export type TimeSuffix = "L" | "Y" | "S" | "B"; // L = long course, Y = bonus/yards, S = short course, B = bonus
 
 export interface Entry {
   id: string;
