@@ -1,9 +1,14 @@
 import { Link, useParams } from "react-router";
 import { useMeet } from "~/context/meet-context";
+import { useSortableTable } from "~/hooks/useSortableTable";
+import { SortableHeader } from "~/components/SortableHeader";
+
+type SwimmerEntrySortColumn = "number" | "event" | "time";
 
 export default function SwimmerDetail() {
   const { swimmerId } = useParams();
   const { meet, getSwimmer, getTeam, getEntriesForSwimmer, getEvent } = useMeet();
+  const { toggleSort, getSortDirection, sortData } = useSortableTable<SwimmerEntrySortColumn>();
 
   if (!meet || !swimmerId) return null;
 
@@ -20,12 +25,34 @@ export default function SwimmerDetail() {
   }
 
   const team = getTeam(swimmer.teamId);
-  const entries = getEntriesForSwimmer(swimmerId).sort((a, b) => {
-    const eventA = getEvent(a.eventId);
-    const eventB = getEvent(b.eventId);
-    if (!eventA || !eventB) return 0;
-    return eventA.number - eventB.number;
+  const allEntries = getEntriesForSwimmer(swimmerId);
+
+  // Apply sorting
+  const sortedEntries = sortData(allEntries, (entry, column) => {
+    const event = getEvent(entry.eventId);
+    switch (column) {
+      case "number":
+        return event?.number ?? 0;
+      case "event":
+        return event ? `${event.distance} ${event.stroke}` : "";
+      case "time":
+        return entry.seedTimeMs ?? Number.MAX_VALUE;
+      default:
+        return event?.number ?? 0;
+    }
   });
+
+  // If no sort is active, default to event number sort
+  const entries = getSortDirection("number") === null &&
+    getSortDirection("event") === null &&
+    getSortDirection("time") === null
+    ? [...allEntries].sort((a, b) => {
+        const eventA = getEvent(a.eventId);
+        const eventB = getEvent(b.eventId);
+        if (!eventA || !eventB) return 0;
+        return eventA.number - eventB.number;
+      })
+    : sortedEntries;
 
   return (
     <div>

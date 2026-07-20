@@ -1,26 +1,50 @@
 import { Link } from "react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMeet } from "~/context/meet-context";
+import { useSortableTable } from "~/hooks/useSortableTable";
+import { SortableHeader } from "~/components/SortableHeader";
+
+type SwimmerSortColumn = "name" | "team" | "entries";
 
 export default function Swimmers() {
   const { meet, getTeam, getEntriesForSwimmer } = useMeet();
   const [search, setSearch] = useState("");
+  const { toggleSort, getSortDirection, sortData } = useSortableTable<SwimmerSortColumn>();
 
   if (!meet) return null;
 
   const allSwimmers = Array.from(meet.swimmers.values());
 
-  const filteredSwimmers = allSwimmers
-    .filter((swimmer) => {
-      if (!search) return true;
-      const searchLower = search.toLowerCase();
-      const team = getTeam(swimmer.teamId);
-      return (
-        swimmer.name.toLowerCase().includes(searchLower) ||
-        team?.name.toLowerCase().includes(searchLower)
-      );
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const filteredSwimmers = allSwimmers.filter((swimmer) => {
+    if (!search) return true;
+    const searchLower = search.toLowerCase();
+    const team = getTeam(swimmer.teamId);
+    return (
+      swimmer.name.toLowerCase().includes(searchLower) ||
+      team?.name.toLowerCase().includes(searchLower)
+    );
+  });
+
+  // Apply sorting (default sort by name if no sort selected)
+  const sortedSwimmers = sortData(filteredSwimmers, (swimmer, column) => {
+    switch (column) {
+      case "name":
+        return swimmer.name;
+      case "team":
+        return getTeam(swimmer.teamId)?.name ?? "";
+      case "entries":
+        return getEntriesForSwimmer(swimmer.id).length;
+      default:
+        return swimmer.name;
+    }
+  });
+
+  // If no sort is active, default to name sort
+  const displaySwimmers = getSortDirection("name") === null &&
+    getSortDirection("team") === null &&
+    getSortDirection("entries") === null
+    ? [...filteredSwimmers].sort((a, b) => a.name.localeCompare(b.name))
+    : sortedSwimmers;
 
   return (
     <div>
@@ -48,19 +72,29 @@ export default function Swimmers() {
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
-              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Name
-              </th>
-              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Team
-              </th>
-              <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Entries
-              </th>
+              <SortableHeader
+                label="Name"
+                column="name"
+                direction={getSortDirection("name")}
+                onSort={toggleSort}
+              />
+              <SortableHeader
+                label="Team"
+                column="team"
+                direction={getSortDirection("team")}
+                onSort={toggleSort}
+              />
+              <SortableHeader
+                label="Entries"
+                column="entries"
+                direction={getSortDirection("entries")}
+                onSort={toggleSort}
+                align="right"
+              />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-            {filteredSwimmers.map((swimmer) => {
+            {displaySwimmers.map((swimmer) => {
               const team = getTeam(swimmer.teamId);
               const entries = getEntriesForSwimmer(swimmer.id);
               return (

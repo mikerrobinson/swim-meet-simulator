@@ -1,17 +1,47 @@
 import { useState } from "react";
 import { useMeet } from "~/context/meet-context";
 import { calculateTeamScores, type TeamScore } from "~/lib/scoring";
+import { useSortableTable } from "~/hooks/useSortableTable";
+import { SortableHeader } from "~/components/SortableHeader";
+
+type ScoreSortColumn = "team" | "individual" | "relay" | "total";
 
 export default function Scores() {
   const { meet, getSwimmer, getEvent } = useMeet();
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
+  const { toggleSort, getSortDirection, sortData } = useSortableTable<ScoreSortColumn>();
 
   if (!meet) {
     return null;
   }
 
-  const teamScores = calculateTeamScores(meet);
-  const topScore = teamScores[0]?.totalPoints || 0;
+  const allScores = calculateTeamScores(meet);
+
+  // Apply sorting
+  const sortedScores = sortData(allScores, (score, column) => {
+    switch (column) {
+      case "team":
+        return score.team.name;
+      case "individual":
+        return score.individualPoints;
+      case "relay":
+        return score.relayPoints;
+      case "total":
+        return score.totalPoints;
+      default:
+        return score.totalPoints;
+    }
+  });
+
+  // If no sort is active, default to total points descending (already sorted by calculateTeamScores)
+  const teamScores = getSortDirection("team") === null &&
+    getSortDirection("individual") === null &&
+    getSortDirection("relay") === null &&
+    getSortDirection("total") === null
+    ? allScores
+    : sortedScores;
+
+  const topScore = allScores[0]?.totalPoints || 0;
 
   return (
     <div className="space-y-6">
@@ -50,21 +80,35 @@ export default function Scores() {
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10 sm:w-12">
-                Rank
+                #
               </th>
-              <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Team
-              </th>
-              <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                <span className="sm:hidden">Indiv</span>
-                <span className="hidden sm:inline">Individual</span>
-              </th>
-              <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Relay
-              </th>
-              <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Total
-              </th>
+              <SortableHeader
+                label="Team"
+                column="team"
+                direction={getSortDirection("team")}
+                onSort={toggleSort}
+              />
+              <SortableHeader
+                label="Indiv"
+                column="individual"
+                direction={getSortDirection("individual")}
+                onSort={toggleSort}
+                align="right"
+              />
+              <SortableHeader
+                label="Relay"
+                column="relay"
+                direction={getSortDirection("relay")}
+                onSort={toggleSort}
+                align="right"
+              />
+              <SortableHeader
+                label="Total"
+                column="total"
+                direction={getSortDirection("total")}
+                onSort={toggleSort}
+                align="right"
+              />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
