@@ -25,6 +25,20 @@ import {
 } from "~/types/meet";
 
 /**
+ * Normalize text to handle common PDF font substitution issues
+ * Some PDFs use Greek Beta Symbol (ϐ, U+03D0) instead of 'f'
+ */
+function normalizeText(text: string): string {
+  return text
+    .replace(/ϐ/g, "f")  // Greek Beta Symbol -> f
+    .replace(/ﬁ/g, "fi") // fi ligature
+    .replace(/ﬂ/g, "fl") // fl ligature
+    .replace(/ﬀ/g, "ff") // ff ligature
+    .replace(/ﬃ/g, "ffi") // ffi ligature
+    .replace(/ﬄ/g, "ffl"); // ffl ligature
+}
+
+/**
  * Parse extracted PDF content into a Meet structure
  */
 export function parsePsychSheet(
@@ -33,7 +47,9 @@ export function parsePsychSheet(
 ): Meet {
   const meet = createEmptyMeet(meetName);
 
-  const lines = extracted.fullText.split("\n").filter((line) => line.trim());
+  // Normalize text to handle font substitution issues
+  const normalizedText = normalizeText(extracted.fullText);
+  const lines = normalizedText.split("\n").filter((line) => line.trim());
 
   let currentEvent: Event | null = null;
   let sawColumnHeader = false;
@@ -251,8 +267,8 @@ function parseEventDetails(
   // Must contain Yard or Meter
   if (!upper.includes("YARD") && !upper.includes("METER")) return null;
 
-  // Extract distance
-  const distanceMatch = content.match(/(\d+)\s*(YARD|METER)/i);
+  // Extract distance - handle "LC Meter" and "SC Yard" formats (Long Course / Short Course)
+  const distanceMatch = content.match(/(\d+)\s+(?:(?:LC|SC)\s+)?(YARD|METER)/i);
   if (!distanceMatch) return null;
   const distance = parseInt(distanceMatch[1], 10);
 
