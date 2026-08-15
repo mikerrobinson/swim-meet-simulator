@@ -1,0 +1,145 @@
+import { useMemo, useState } from "react";
+import type { Route } from "./+types/results";
+import { Button, Card, EmptyState, SectionTitle } from "~/components/ui";
+import { downloadFile, resultsToCsv } from "~/lib/csv";
+import { formatTime } from "~/lib/time";
+import { useMeet } from "~/state/meet-store";
+import { eventName, swimmerName, type Result } from "~/types/meet";
+
+export function meta({}: Route.MetaArgs) {
+  return [{ title: "Results · Meet Runner" }];
+}
+
+export default function Results() {
+  const { meet } = useMeet();
+  const [openEvent, setOpenEvent] = useState<string | null>(null);
+
+  const swimmers = useMemo(
+    () => new Map(meet.swimmers.map((s) => [s.id, s] as const)),
+    [meet.swimmers],
+  );
+
+  const byEvent = useMemo(() => {
+    const map = new Map<string, Result[]>();
+    for (const result of meet.results) {
+      const list = map.get(result.eventId) ?? [];
+      list.push(result);
+      map.set(result.eventId, list);
+    }
+    // Rank across the whole event, not within a heat — DQs and no-shows last.
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        if (a.status !== b.status) return a.status === "OK" ? -1 : 1;
+        return a.timeMs - b.timeMs;
+      });
+    }
+    return map;
+  }, [meet.results]);
+
+  const slug = `${meet.name.replace(/[^\w-]+/g, "-").toLowerCase()}-${meet.date}`;
+
+  if (meet.results.length === 0) {
+    return (
+      <EmptyState title="No times recorded yet">
+        Times show up here as you run heats.
+      </EmptyState>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <SectionTitle>Export</SectionTitle>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={() =>
+              downloadFile(`${slug}-results.csv`, resultsToCsv(meet), "text/csv")
+            }
+          >
+            Results CSV
+          </Button>
+          <Button
+            size="lg"
+            onClick={() =>
+              downloadFile(
+                `${slug}.json`,
+                JSON.stringify(meet, null, 2),
+                "application/json",
+              )
+            }
+          >
+            Full backup
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          {meet.results.length} time{meet.results.length === 1 ? "" : "s"} across{" "}
+          {byEvent.size} event{byEvent.size === 1 ? "" : "s"}.
+        </p>
+      </Card>
+
+      {meet.events.map((event, index) => {
+        const results = byEvent.get(event.id) ?? [];
+        if (results.length === 0) return null;
+        const open = openEvent === event.id;
+
+        return (
+          <Card key={event.id}>
+            <button
+              type="button"
+              className="flex w-full touch-manipulation items-center justify-between gap-2 text-left"
+              onClick={() => setOpenEvent(open ? null : event.id)}
+              aria-expanded={open}
+            >
+              <span>
+                <span className="block text-lg font-bold">
+                  {index + 1}. {eventName(event)}
+                </span>
+                <span className="block text-sm text-slate-500 dark:text-slate-400">
+                  {results.length} time{results.length === 1 ? "" : "s"}
+                </span>
+              </span>
+              <span aria-hidden className="text-xl text-slate-400">
+                {open ? "▾" : "▸"}
+              </span>
+            </button>
+
+            {open && (
+              <ol className="mt-3 divide-y divide-slate-200 dark:divide-slate-800">
+                {results.map((result, place) => {
+                  const swimmer = swimmers.get(result.swimmerId);
+                  return (
+                    <li
+                      key={result.id}
+                      className="flex items-center gap-3 py-2"
+                    >
+                      <span className="w-6 text-center text-sm font-bold text-slate-400">
+                        {result.status === "OK" ? place + 1 : "—"}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold">
+                          {swimmer ? swimmerName(swimmer) : "(removed)"}
+                        </span>
+                        <span className="block text-xs text-slate-500 dark:text-slate-400">
+                          Lane {result.lane}
+                          {swimmer?.squad && ` · ${swimmer.squad}`}
+                          {result.manual && " · typed in"}
+                        </span>
+                      </span>
+                      <span className="text-lg font-bold tabular-nums">
+                        {result.status === "OK"
+                          ? formatTime(result.timeMs)
+                          : result.status}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </Card>
+        );
+      })}
+    </div>
+  );
+}

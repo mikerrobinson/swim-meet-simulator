@@ -1,5 +1,5 @@
 {
-  "name": "meet-entries",
+  "name": "meet-runner",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "isbot": "^5.1.31",
-    "pdfjs-dist": "^5.5.207",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router": "7.12.0"

@@ -9,11 +9,11 @@ declare module "react-router" {
   }
 }
 
-const BASE_PATH = "/projects/meet-entries";
+const BASE_PATH = "/projects/meet-runner";
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
-  import.meta.env.MODE
+  import.meta.env.MODE,
 );
 
 export default {
@@ -28,19 +28,24 @@ export default {
         return Response.redirect(`${url.origin}${BASE_PATH}/`, 301);
       }
 
-      // Strip base path for asset lookups
-      if (url.pathname.startsWith(BASE_PATH)) {
-        const assetPath = url.pathname.slice(BASE_PATH.length) || "/";
+      // Only GET/HEAD can name a static asset, and only those are safe to
+      // probe: building a Request from another Request hands off the body
+      // stream and marks the original as used. React Router rebuilds the
+      // request downstream, so a probed POST/PUT would arrive with a spent
+      // body and blow up inside the router.
+      const couldBeAsset =
+        (request.method === "GET" || request.method === "HEAD") &&
+        url.pathname.startsWith(BASE_PATH) &&
+        !url.pathname.startsWith(`${BASE_PATH}/api/`);
 
-        // Try to serve static assets first
-        if (env.ASSETS) {
-          const assetUrl = new URL(assetPath, url.origin);
-          const assetResponse = await env.ASSETS.fetch(
-            new Request(assetUrl, request)
-          );
-          if (assetResponse.status !== 404) {
-            return assetResponse;
-          }
+      if (couldBeAsset && env.ASSETS) {
+        const assetPath = url.pathname.slice(BASE_PATH.length) || "/";
+        const assetUrl = new URL(assetPath, url.origin);
+        const assetResponse = await env.ASSETS.fetch(
+          new Request(assetUrl, request),
+        );
+        if (assetResponse.status !== 404) {
+          return assetResponse;
         }
       }
     }

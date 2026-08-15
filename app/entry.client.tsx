@@ -2,7 +2,7 @@
 // Must be at the very top before any other imports
 if (
   typeof ReadableStream !== "undefined" &&
-  !ReadableStream.prototype[Symbol.asyncIterator]
+  !(ReadableStream.prototype as any)[Symbol.asyncIterator]
 ) {
   (ReadableStream.prototype as any)[Symbol.asyncIterator] = async function* <
     T,

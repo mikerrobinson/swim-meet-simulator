@@ -1,146 +1,135 @@
 /**
- * Core data types for swim meet representation
+ * Core data model for an inter-squad dual meet.
+ *
+ * The entire meet is a single JSON document. It lives in localStorage on the
+ * device and is pushed/pulled verbatim to the server (D1) when syncing, so
+ * every type here must be plain JSON — no Map, Set, or Date instances.
  */
 
-/**
- * Generate a UUID with fallback for browsers without crypto.randomUUID
- */
-export function generateId(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  // Fallback for older browsers
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
+export type Gender = "M" | "F";
 
-export type Gender = "M" | "F" | "Mixed";
+/** Events can be restricted to one gender, or open to everyone. */
+export type EventGender = Gender | "Open";
 
-export type Stroke =
-  | "Freestyle"
-  | "Backstroke"
-  | "Breaststroke"
-  | "Butterfly"
-  | "IM" // Individual Medley
-  | "Medley Relay"
-  | "Freestyle Relay";
+export type Stroke = "Free" | "Back" | "Breast" | "Fly" | "IM";
 
-export interface Team {
-  id: string;
-  name: string;
-  abbreviation?: string;
-}
+export const STROKES: Stroke[] = ["Free", "Back", "Breast", "Fly", "IM"];
+
+export type LaneCount = 4 | 6 | 8;
+
+export const LANE_COUNTS: LaneCount[] = [4, 6, 8];
 
 export interface Swimmer {
   id: string;
-  name: string;
-  teamId: string;
-  age?: number;
-}
-
-export interface Event {
-  id: string;
-  number: number;
-  distance: number; // in yards or meters
-  stroke: Stroke;
+  firstName: string;
+  lastName: string;
   gender: Gender;
-  ageGroup?: string; // e.g., "13-14", "Open", "Senior"
-  isRelay: boolean;
+  /** School year as entered — "9", "Fr", "Senior", whatever the CSV had. */
+  year: string;
+  /** Optional squad/side for an inter-squad meet (e.g. "Blue" / "Gold"). */
+  squad?: string;
+  /** Scratched swimmers stay in the roster but drop out of heats. */
+  active: boolean;
 }
 
-export type TimeSuffix = "L" | "Y" | "S" | "B"; // L = long course, Y = bonus/yards, S = short course, B = bonus
+export interface MeetEvent {
+  id: string;
+  distance: number;
+  stroke: Stroke;
+  gender: EventGender;
+  /** Optional label override; otherwise derived from distance/stroke/gender. */
+  name?: string;
+}
 
-export interface Entry {
+/** eventId -> swimmerIds registered in that event. */
+export type Entries = Record<string, string[]>;
+
+export interface Heat {
   id: string;
   eventId: string;
-  seedTime: string; // Keep as string to preserve formatting like "1:23.45" or "NT"
-  seedTimeMs?: number; // Parsed time in milliseconds for sorting (undefined for NT)
-  timeSuffix?: TimeSuffix; // L = long course, Y = bonus/yards entry
-
-  // For individual events
-  swimmerId?: string;
-
-  // For relay events
-  teamId?: string;
-  relayLetter?: string; // A, B, C, etc.
+  /** 0-based position within the event. */
+  index: number;
+  /** One slot per lane, index 0 = lane 1. `null` = empty lane. */
+  lanes: (string | null)[];
 }
 
-export interface Meet {
+export type ResultStatus = "OK" | "DQ" | "NS";
+
+export interface Result {
+  id: string;
+  eventId: string;
+  heatId: string;
+  swimmerId: string;
+  /** 1-based lane number. */
+  lane: number;
+  /** Elapsed time in milliseconds. */
+  timeMs: number;
+  status: ResultStatus;
+  recordedAt: number;
+  /** True when the time was typed in rather than captured by the stopwatch. */
+  manual?: boolean;
+}
+
+export interface MeetOptions {
+  laneCount: LaneCount;
+}
+
+/**
+ * A stopwatch run in progress. Anchored to an absolute epoch timestamp rather
+ * than an accumulating counter so the clock stays correct across a reload, a
+ * backgrounded tab, or an iOS screen lock.
+ */
+export interface TimerState {
+  heatId: string;
+  startedAt: number;
+}
+
+export interface Progress {
+  eventIndex: number;
+  heatIndex: number;
+}
+
+export interface MeetDoc {
+  /** Bumped when the shape changes so `migrate` can upgrade old saves. */
+  version: number;
   id: string;
   name: string;
-  date?: string;
-  location?: string;
-  hostTeam?: string;
-
-  // Indexed collections for easy lookup
-  teams: Map<string, Team>;
-  swimmers: Map<string, Swimmer>;
-  events: Map<string, Event>;
-  entries: Entry[];
+  /** ISO date (yyyy-mm-dd). */
+  date: string;
+  options: MeetOptions;
+  swimmers: Swimmer[];
+  /** Order of this array is the order events are swum. */
+  events: MeetEvent[];
+  entries: Entries;
+  heats: Heat[];
+  results: Result[];
+  progress: Progress;
+  timer: TimerState | null;
+  /** Local last-modified time, used to resolve sync conflicts. */
+  updatedAt: number;
+  /** `updatedAt` as of the last successful sync, or null if never synced. */
+  syncedAt: number | null;
 }
 
-/**
- * Helper to create a new empty meet
- */
-export function createEmptyMeet(name: string): Meet {
-  return {
-    id: generateId(),
-    name,
-    teams: new Map(),
-    swimmers: new Map(),
-    events: new Map(),
-    entries: [],
-  };
+export const MEET_DOC_VERSION = 1;
+
+export function swimmerName(s: Swimmer): string {
+  return `${s.firstName} ${s.lastName}`.trim();
 }
 
-/**
- * Parse a time string like "1:23.45" or "23.45" into milliseconds
- * Returns undefined for "NT" (no time) entries
- */
-export function parseTimeToMs(timeStr: string): number | undefined {
-  const trimmed = timeStr.trim().toUpperCase();
-  if (trimmed === "NT" || trimmed === "NS" || trimmed === "") {
-    return undefined;
-  }
-
-  // Handle formats: "1:23.45", "23.45", "1:23:45.67" (for very long events)
-  const parts = trimmed.split(":");
-  let totalMs = 0;
-
-  if (parts.length === 1) {
-    // Just seconds: "23.45"
-    totalMs = parseFloat(parts[0]) * 1000;
-  } else if (parts.length === 2) {
-    // Minutes:seconds: "1:23.45"
-    totalMs = parseInt(parts[0], 10) * 60 * 1000 + parseFloat(parts[1]) * 1000;
-  } else if (parts.length === 3) {
-    // Hours:minutes:seconds: "1:23:45.67"
-    totalMs =
-      parseInt(parts[0], 10) * 60 * 60 * 1000 +
-      parseInt(parts[1], 10) * 60 * 1000 +
-      parseFloat(parts[2]) * 1000;
-  }
-
-  return isNaN(totalMs) ? undefined : Math.round(totalMs);
+/** "Smith, J." — fits in a lane button without wrapping. */
+export function shortName(s: Swimmer): string {
+  const initial = s.firstName ? `${s.firstName[0]}.` : "";
+  return `${s.lastName}${initial ? `, ${initial}` : ""}`;
 }
 
-/**
- * Format milliseconds back to a time string
- */
-export function formatMsToTime(ms: number): string {
-  const totalSeconds = ms / 1000;
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
+export function eventName(e: MeetEvent): string {
+  if (e.name) return e.name;
+  const prefix = e.gender === "Open" ? "" : e.gender === "M" ? "Boys " : "Girls ";
+  return `${prefix}${e.distance} ${e.stroke}`;
+}
 
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toFixed(2).padStart(5, "0")}`;
-  } else if (minutes > 0) {
-    return `${minutes}:${seconds.toFixed(2).padStart(5, "0")}`;
-  } else {
-    return seconds.toFixed(2);
-  }
+/** Whether a swimmer is eligible for an event, given its gender restriction. */
+export function isEligible(swimmer: Swimmer, event: MeetEvent): boolean {
+  return event.gender === "Open" || event.gender === swimmer.gender;
 }

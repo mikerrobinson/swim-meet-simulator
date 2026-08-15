@@ -1,187 +1,235 @@
-import { useState, useCallback } from "react";
-import { useNavigate } from "react-router";
+import { useRef, useState } from "react";
+import { Link } from "react-router";
 import type { Route } from "./+types/home";
-import { useMeet } from "~/context/meet-context";
-import { parsePsychSheet } from "~/lib/psych-sheet-parser";
+import { SyncPanel } from "~/components/SyncPanel";
+import {
+  Banner,
+  Button,
+  Card,
+  Field,
+  SectionTitle,
+  TextInput,
+} from "~/components/ui";
+import { downloadFile } from "~/lib/csv";
+import { migrate } from "~/lib/storage";
+import { useMeetStore } from "~/state/meet-store";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Swim Meet Simulator" },
-    { name: "description", content: "Upload and analyze swim meet psych sheets" },
+    { title: "Meet Runner" },
+    {
+      name: "description",
+      content: "Set up, register, and run an inter-squad dual swim meet.",
+    },
   ];
 }
 
+const MODES = [
+  {
+    to: "/setup",
+    title: "Setup",
+    detail: "Roster, event order, and pool options",
+  },
+  {
+    to: "/registration",
+    title: "Registration",
+    detail: "Enter swimmers in events",
+  },
+  { to: "/run", title: "Run Meet", detail: "Heat-by-heat stopwatch" },
+];
+
 export default function Home() {
-  const { setMeet } = useMeet();
-  const navigate = useNavigate();
-  const [isDragging, setIsDragging] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { meet, newMeet, replaceMeet, deleteMeet, setMeetInfo } = useMeetStore();
+  const [importError, setImportError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
-  const handleFile = useCallback(
-    async (file: File) => {
-      if (!file.name.toLowerCase().endsWith(".pdf")) {
-        setError("Please upload a PDF file");
-        return;
-      }
+  const handleImport = async (file: File) => {
+    setImportError(null);
+    try {
+      const parsed = migrate(JSON.parse(await file.text()));
+      if (!parsed) throw new Error("That file isn't a Meet Runner backup.");
+      replaceMeet({ ...parsed, syncedAt: null });
+    } catch (error) {
+      setImportError(
+        error instanceof Error ? error.message : "Could not read that file.",
+      );
+    }
+  };
 
-      setError(null);
-      setIsProcessing(true);
+  if (!meet) {
+    return (
+      <div className="space-y-4">
+        {/* Server list first: on a second device this is what you came for,
+            and it keeps "New meet" from being the obvious thing to tap. */}
+        <SyncPanel />
+        <Card>
+          <SectionTitle>Start a meet</SectionTitle>
+          <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
+            Everything is stored on this device, so the app keeps working with no
+            signal on the pool deck. Sync to the server whenever you want a
+            backup.
+          </p>
+          <Button variant="primary" size="lg" full onClick={() => newMeet()}>
+            New meet
+          </Button>
+          <Button
+            className="mt-2"
+            size="lg"
+            full
+            onClick={() => fileInput.current?.click()}
+          >
+            Restore from a backup file
+          </Button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImport(file);
+              e.target.value = "";
+            }}
+          />
+          {importError && (
+            <div className="mt-3">
+              <Banner tone="error">{importError}</Banner>
+            </div>
+          )}
+        </Card>
+      </div>
+    );
+  }
 
-      try {
-        // Dynamic import to ensure pdf.js only loads on client
-        const { extractPdfText } = await import("~/lib/pdf-extractor");
-        const extracted = await extractPdfText(file);
-        const meetName = file.name.replace(/\.pdf$/i, "");
-        const meet = parsePsychSheet(extracted, meetName);
-        setMeet(meet);
-        navigate("/events");
-      } catch (err) {
-        console.error("Error processing PDF:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to process PDF"
-        );
-      } finally {
-        setIsProcessing(false);
-      }
-    },
-    [setMeet, navigate]
+  const entryCount = Object.values(meet.entries).reduce(
+    (total, ids) => total + ids.length,
+    0,
   );
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        handleFile(file);
-      }
-    },
-    [handleFile]
-  );
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
-
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        handleFile(file);
-      }
-    },
-    [handleFile]
-  );
+  const stats = [
+    { label: "Swimmers", value: meet.swimmers.filter((s) => s.active).length },
+    { label: "Events", value: meet.events.length },
+    { label: "Entries", value: entryCount },
+    { label: "Times", value: meet.results.length },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950">
-      <div className="container mx-auto px-4 py-16 max-w-2xl">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Swim Meet Simulator
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
-            Upload a psych sheet PDF to view entries, teams, and swimmers
-          </p>
+    <div className="space-y-4">
+      <Card>
+        <SectionTitle>Meet details</SectionTitle>
+        <div className="space-y-3">
+          <Field label="Meet name">
+            <TextInput
+              value={meet.name}
+              onChange={(e) => setMeetInfo({ name: e.target.value })}
+            />
+          </Field>
+          <Field label="Date">
+            <TextInput
+              type="date"
+              value={meet.date}
+              onChange={(e) => setMeetInfo({ date: e.target.value })}
+            />
+          </Field>
         </div>
 
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          className={`
-            relative border-2 border-dashed rounded-xl p-12 text-center
-            transition-all duration-200 ease-in-out
-            ${
-              isDragging
-                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                : "border-gray-300 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500"
+        <dl className="mt-4 grid grid-cols-4 gap-2">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-xl bg-slate-100 p-2 text-center dark:bg-slate-800"
+            >
+              <dd className="text-xl font-bold">{stat.value}</dd>
+              <dt className="text-xs text-slate-500 dark:text-slate-400">
+                {stat.label}
+              </dt>
+            </div>
+          ))}
+        </dl>
+      </Card>
+
+      <div className="space-y-2">
+        {MODES.map((mode) => (
+          <Link
+            key={mode.to}
+            to={mode.to}
+            className="flex touch-manipulation items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 active:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:active:bg-slate-800"
+          >
+            <span>
+              <span className="block text-lg font-bold">{mode.title}</span>
+              <span className="block text-sm text-slate-500 dark:text-slate-400">
+                {mode.detail}
+              </span>
+            </span>
+            <span aria-hidden className="text-2xl text-slate-400">
+              ›
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      <SyncPanel />
+
+      <Card>
+        <SectionTitle>Backup</SectionTitle>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            onClick={() =>
+              downloadFile(
+                `${meet.name.replace(/[^\w-]+/g, "-").toLowerCase()}-${meet.date}.json`,
+                JSON.stringify(meet, null, 2),
+                "application/json",
+              )
             }
-            ${isProcessing ? "opacity-50 pointer-events-none" : ""}
-          `}
-        >
-          <input
-            type="file"
-            accept=".pdf"
-            onChange={handleInputChange}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            disabled={isProcessing}
-          />
-
-          <div className="space-y-4">
-            <div className="mx-auto w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-              {isProcessing ? (
-                <svg
-                  className="animate-spin h-8 w-8 text-blue-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="h-8 w-8 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
-              )}
-            </div>
-
-            <div>
-              <p className="text-lg font-medium text-gray-900 dark:text-white">
-                {isProcessing
-                  ? "Processing..."
-                  : "Drop your psych sheet PDF here"}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                or click to browse
-              </p>
-            </div>
-          </div>
+          >
+            Export file
+          </Button>
+          <Button onClick={() => fileInput.current?.click()}>Import file</Button>
         </div>
-
-        {error && (
-          <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleImport(file);
+            e.target.value = "";
+          }}
+        />
+        {importError && (
+          <div className="mt-3">
+            <Banner tone="error">{importError}</Banner>
           </div>
         )}
 
-        <div className="mt-12 text-center text-sm text-gray-500 dark:text-gray-400">
-          <p>
-            PDF parsing happens entirely in your browser.
-            <br />
-            No data is uploaded to any server.
-          </p>
-        </div>
-      </div>
+        <hr className="my-4 border-slate-200 dark:border-slate-800" />
+
+        {confirmDelete ? (
+          <div className="space-y-2">
+            <Banner tone="error">
+              This erases the roster, entries, and every recorded time on this
+              device. Push to the server first if you want to keep it.
+            </Banner>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="danger"
+                onClick={() => {
+                  deleteMeet();
+                  setConfirmDelete(false);
+                }}
+              >
+                Delete it
+              </Button>
+              <Button onClick={() => setConfirmDelete(false)}>Cancel</Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="ghost" full onClick={() => setConfirmDelete(true)}>
+            Delete this meet from the device
+          </Button>
+        )}
+      </Card>
     </div>
   );
 }

@@ -8,28 +8,32 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import { MeetProvider } from "./context/meet-context";
+import { MeetStoreProvider } from "./state/meet-store";
 import "./app.css";
-
-export const links: Route.LinksFunction = () => [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
-  },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
-  },
-];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* viewport-fit=cover so the tab bar can sit under the iOS home bar. */}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="Meet Runner" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta
+          name="theme-color"
+          content="#f8fafc"
+          media="(prefers-color-scheme: light)"
+        />
+        <meta
+          name="theme-color"
+          content="#020617"
+          media="(prefers-color-scheme: dark)"
+        />
         <Meta />
         <Links />
       </head>
@@ -44,22 +48,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <MeetProvider>
+    <MeetStoreProvider>
       <Outlet />
-    </MeetProvider>
+    </MeetStoreProvider>
   );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  let message = "Oops!";
+  let message = "Something went wrong";
   let details = "An unexpected error occurred.";
   let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Error";
+    message = error.status === 404 ? "Not found" : "Error";
     details =
       error.status === 404
-        ? "The requested page could not be found."
+        ? "That page doesn't exist."
         : error.statusText || details;
   } else if (import.meta.env.DEV && error && error instanceof Error) {
     details = error.message;
@@ -67,11 +71,14 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
+    <main className="mx-auto max-w-3xl p-6">
+      <h1 className="text-2xl font-bold">{message}</h1>
+      <p className="mt-2 text-slate-600 dark:text-slate-300">{details}</p>
+      <p className="mt-4 text-sm text-slate-500">
+        Your meet is saved on this device — reloading won't lose it.
+      </p>
       {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
+        <pre className="mt-4 w-full overflow-x-auto rounded-xl bg-slate-100 p-4 text-xs dark:bg-slate-900">
           <code>{stack}</code>
         </pre>
       )}
