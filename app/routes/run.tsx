@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import type { Route } from "./+types/run";
 import { LaneAssignSheet } from "~/components/LaneAssignSheet";
+import { LaneTile } from "~/components/LaneTile";
 import { Banner, Button, EmptyState, Field, Sheet, TextInput } from "~/components/ui";
 import { useElapsed, useWakeLock } from "~/hooks/use-stopwatch";
 import { heatsForEvent } from "~/lib/heats";
@@ -9,7 +10,7 @@ import { formatClock, formatTime, parseTime } from "~/lib/time";
 import { useMeet } from "~/state/meet-store";
 import {
   eventName,
-  shortName,
+  orderedLanes,
   swimmerName,
   type Heat,
   type Result,
@@ -18,13 +19,6 @@ import {
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Run Meet · Meet Runner" }];
 }
-
-/** Tiles shrink as lanes multiply so 8 lanes still fit one phone screen. */
-const TILE_HEIGHT: Record<number, string> = {
-  4: "h-32",
-  6: "h-28",
-  8: "h-24",
-};
 
 export default function RunMeet() {
   const {
@@ -62,6 +56,7 @@ export default function RunMeet() {
     if (event) ensureHeats(event.id);
   }, [event, ensureHeats]);
 
+  const layout = meet.options.laneLayout;
   const running = heat != null && meet.timer?.heatId === heat.id;
 
   const resultsByLane = useMemo(() => {
@@ -173,70 +168,31 @@ export default function RunMeet() {
         </EmptyState>
       ) : (
         <>
-          {/* Lane grid */}
-          <div className="grid grid-cols-2 gap-2">
-            {heat.lanes.map((swimmerId, i) => {
-              const lane = i + 1;
-              const swimmer = meet.swimmers.find((s) => s.id === swimmerId);
-              const result = resultsByLane.get(lane);
-              const height = TILE_HEIGHT[meet.options.laneCount] ?? "h-28";
-
-              if (!swimmer) {
-                return (
-                  <button
-                    key={lane}
-                    type="button"
-                    disabled={clockRunning}
-                    onClick={() => setAssigningLane(lane)}
-                    className={`${height} flex touch-manipulation flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 text-slate-400 disabled:opacity-60 dark:border-slate-700`}
-                  >
-                    <span className="text-sm font-semibold">Lane {lane}</span>
-                    <span className="text-xs">
-                      {clockRunning ? "empty" : "+ Add swimmer"}
-                    </span>
-                  </button>
-                );
-              }
-
-              const stopped = result !== undefined;
-              const canStop = running && !stopped;
-
-              return (
-                <button
-                  key={lane}
-                  type="button"
-                  onClick={() => {
-                    if (canStop) stopLane(heat, lane, Date.now() - meet.timer!.startedAt);
-                    else setEditingLane(lane);
-                  }}
-                  className={`${height} flex touch-manipulation flex-col items-center justify-center rounded-2xl px-2 text-center transition-colors ${
-                    stopped
-                      ? result.status === "OK"
-                        ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100"
-                        : "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
-                      : running
-                        ? "bg-red-600 text-white active:bg-red-700"
-                        : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                  }`}
-                >
-                  <span className="text-xs font-bold opacity-70">
-                    Lane {lane}
-                  </span>
-                  <span className="w-full truncate text-base font-bold leading-tight">
-                    {shortName(swimmer)}
-                  </span>
-                  <span className="mt-0.5 text-2xl font-bold tabular-nums leading-none">
-                    {stopped
-                      ? result.status === "OK"
-                        ? formatTime(result.timeMs)
-                        : result.status
-                      : running
-                        ? "STOP"
-                        : "—"}
-                  </span>
-                </button>
-              );
-            })}
+          {/* Lane buttons, arranged per the meet's layout option. */}
+          <div
+            className={`grid gap-2 ${
+              layout === "grid" ? "grid-cols-2" : "grid-cols-1"
+            }`}
+          >
+            {orderedLanes(heat.lanes.length, layout).map((lane) => (
+              <LaneTile
+                key={lane}
+                lane={lane}
+                swimmer={meet.swimmers.find(
+                  (s) => s.id === heat.lanes[lane - 1],
+                )}
+                result={resultsByLane.get(lane)}
+                running={running}
+                clockRunning={clockRunning}
+                layout={layout}
+                laneCount={heat.lanes.length}
+                onStop={() =>
+                  stopLane(heat, lane, Date.now() - meet.timer!.startedAt)
+                }
+                onEdit={() => setEditingLane(lane)}
+                onAssign={() => setAssigningLane(lane)}
+              />
+            ))}
           </div>
 
           {/* Action panel. One fixed-height block in the easiest place to

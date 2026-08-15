@@ -20,7 +20,12 @@ a backup.
   without deleting them.
 - _Events_: reorder with the arrows, set each event to Open / Girls / Boys, or
   load a standard 8- or 16-event dual meet order.
-- _Options_: 4, 6, or 8 lanes.
+- _Options_: 4, 6, or 8 lanes, and how the stopwatch arranges its buttons —
+  a two-column grid, or a single column running low-to-high or high-to-low. The
+  list layouts let someone watching from the side map a finish straight onto a
+  button without first working out which column it's in; a live preview shows
+  the arrangement as you pick. Eight lanes as a list is tall — it fits an iPad
+  or an installed phone app, but may scroll slightly in mobile Safari.
 
 **Registration** — swimmers down the side, events across the top, tap a cell to
 enter or scratch. The whole screen is grid: the name column and the header row
@@ -42,6 +47,8 @@ to bring them back.
 - `START` starts every occupied lane at once.
 - Each lane becomes its own big `STOP` button showing the swimmer's name; tap it
   as they touch. The lane freezes at its time while the clock keeps running.
+  Grid buttons stack their contents; list rows run left to right with the lane
+  number in a fixed column down the edge.
 - `Reset` re-runs the current heat (clears its times). `Next heat` advances,
   rolling on to the next event after the last heat. Neither is on screen while
   swimmers are still in the water, so a stray tap can't end a live race.

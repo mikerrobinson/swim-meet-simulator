@@ -19,9 +19,11 @@ import {
   LANE_COUNTS,
   STROKES,
   eventName,
+  orderedLanes,
   swimmerName,
   type EventGender,
   type LaneCount,
+  type LaneLayout,
   type Stroke,
   type Swimmer,
 } from "~/types/meet";
@@ -444,25 +446,73 @@ function EventsTab() {
 /* ----------------------------------------------------------------- options */
 
 function OptionsTab() {
-  const { meet, setLaneCount } = useMeet();
+  const { meet, setLaneCount, setLaneLayout } = useMeet();
+  const { laneCount, laneLayout } = meet.options;
 
   return (
-    <Card>
-      <SectionTitle>Pool</SectionTitle>
-      <Field
-        label="Lanes"
-        hint="Sets how many swimmers go per heat and how the stopwatch grid is laid out."
-      >
-        <Segmented
-          value={meet.options.laneCount}
-          onChange={(value) => setLaneCount(value as LaneCount)}
-          options={LANE_COUNTS.map((n) => ({ value: n, label: String(n) }))}
-        />
-      </Field>
-      <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-        Changing the lane count re-seeds heats for any event that hasn't been
-        swum yet. Events with recorded times keep their original lanes.
-      </p>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <SectionTitle>Pool</SectionTitle>
+        <Field
+          label="Lanes"
+          hint="Sets how many swimmers go per heat, and how many buttons the stopwatch shows."
+        >
+          <Segmented
+            value={laneCount}
+            onChange={(value) => setLaneCount(value as LaneCount)}
+            options={LANE_COUNTS.map((n) => ({ value: n, label: String(n) }))}
+          />
+        </Field>
+        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+          Changing the lane count re-seeds heats for any event that hasn't been
+          swum yet. Events with recorded times keep their original lanes.
+        </p>
+      </Card>
+
+      <Card>
+        <SectionTitle>Stopwatch buttons</SectionTitle>
+        <Field
+          label="Layout"
+          hint="A single column in pool order is easier to hit without looking — read the finish, drop straight down the column."
+        >
+          <Segmented
+            value={laneLayout}
+            onChange={(value) => setLaneLayout(value as LaneLayout)}
+            options={[
+              { value: "grid" as LaneLayout, label: "Grid" },
+              { value: "list-asc" as LaneLayout, label: `1 → ${laneCount}` },
+              { value: "list-desc" as LaneLayout, label: `${laneCount} → 1` },
+            ]}
+          />
+        </Field>
+        <LayoutPreview laneCount={laneCount} layout={laneLayout} />
+      </Card>
+    </div>
+  );
+}
+
+/** Miniature of the Run screen's button arrangement, so the choice is visible. */
+function LayoutPreview({
+  laneCount,
+  layout,
+}: {
+  laneCount: LaneCount;
+  layout: LaneLayout;
+}) {
+  return (
+    <div
+      className={`mt-3 grid gap-1 ${
+        layout === "grid" ? "grid-cols-2" : "grid-cols-1"
+      }`}
+    >
+      {orderedLanes(laneCount, layout).map((lane) => (
+        <div
+          key={lane}
+          className="rounded-md bg-slate-200 py-1 text-center text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+        >
+          Lane {lane}
+        </div>
+      ))}
+    </div>
   );
 }

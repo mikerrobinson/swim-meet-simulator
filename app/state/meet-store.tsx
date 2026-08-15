@@ -15,6 +15,7 @@ import { isEligible } from "~/types/meet";
 import type {
   Heat,
   LaneCount,
+  LaneLayout,
   MeetDoc,
   MeetEvent,
   Result,
@@ -38,6 +39,7 @@ interface MeetStore {
   // Setup
   setMeetInfo: (patch: Partial<Pick<MeetDoc, "name" | "date">>) => void;
   setLaneCount: (laneCount: LaneCount) => void;
+  setLaneLayout: (laneLayout: LaneLayout) => void;
   addSwimmers: (swimmers: Swimmer[], mode: "replace" | "append") => void;
   updateSwimmer: (id: string, patch: Partial<Swimmer>) => void;
   removeSwimmer: (id: string) => void;
@@ -166,6 +168,9 @@ export function MeetStoreProvider({ children }: { children: ReactNode }) {
             m.results.some((r) => r.eventId === h.eventId),
           ),
         })),
+
+      setLaneLayout: (laneLayout) =>
+        update((m) => ({ ...m, options: { ...m.options, laneLayout } })),
 
       addSwimmers: (swimmers, mode) =>
         update((m) => {

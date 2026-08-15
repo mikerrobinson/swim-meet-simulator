@@ -11,7 +11,7 @@ export function createMeet(name = "Inter-Squad Dual Meet"): MeetDoc {
     id: generateId(),
     name,
     date: new Date().toISOString().slice(0, 10),
-    options: { laneCount: 6 },
+    options: { laneCount: 6, laneLayout: "grid" },
     swimmers: [],
     events: defaultEvents("open"),
     entries: {},
@@ -33,6 +33,7 @@ export function migrate(input: unknown): MeetDoc | null {
   }
 
   const laneCount = doc.options?.laneCount;
+  const laneLayout = doc.options?.laneLayout;
   return {
     version: MEET_DOC_VERSION,
     id: doc.id,
@@ -40,6 +41,11 @@ export function migrate(input: unknown): MeetDoc | null {
     date: doc.date ?? new Date().toISOString().slice(0, 10),
     options: {
       laneCount: laneCount === 4 || laneCount === 8 ? laneCount : 6,
+      // Saves from before the layout option existed default to the grid.
+      laneLayout:
+        laneLayout === "list-asc" || laneLayout === "list-desc"
+          ? laneLayout
+          : "grid",
     },
     swimmers: doc.swimmers.map((s) => ({ ...s, active: s.active !== false })),
     events: doc.events,

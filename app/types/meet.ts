@@ -19,6 +19,25 @@ export type LaneCount = 4 | 6 | 8;
 
 export const LANE_COUNTS: LaneCount[] = [4, 6, 8];
 
+/**
+ * How the lane buttons are arranged while running a heat. The two list
+ * layouts put the lanes in a single column in pool order, so whoever is
+ * watching from the side maps a finish straight onto a button without
+ * having to work out which column it's in.
+ */
+export type LaneLayout = "grid" | "list-asc" | "list-desc";
+
+export const LANE_LAYOUTS: LaneLayout[] = ["grid", "list-asc", "list-desc"];
+
+/** Lane numbers in the order they should be drawn for a layout. */
+export function orderedLanes(
+  laneCount: number,
+  layout: LaneLayout,
+): number[] {
+  const lanes = Array.from({ length: laneCount }, (_, i) => i + 1);
+  return layout === "list-desc" ? lanes.reverse() : lanes;
+}
+
 export interface Swimmer {
   id: string;
   firstName: string;
@@ -72,6 +91,7 @@ export interface Result {
 
 export interface MeetOptions {
   laneCount: LaneCount;
+  laneLayout: LaneLayout;
 }
 
 /**

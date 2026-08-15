@@ -1,0 +1,127 @@
+import { formatTime } from "~/lib/time";
+import { shortName, type LaneLayout, type Result, type Swimmer } from "~/types/meet";
+
+/**
+ * Grid tiles stack their content; list rows run it left to right so the lane
+ * number sits in a fixed column down the edge, which is the whole point of the
+ * list layouts — read the finish, drop straight down the column.
+ */
+const GRID_HEIGHT: Record<number, string> = {
+  4: "h-32",
+  6: "h-28",
+  8: "h-24",
+};
+
+/** Shorter, because a list puts every lane in its own row. */
+const LIST_HEIGHT: Record<number, string> = {
+  4: "h-20",
+  6: "h-16",
+  8: "h-[3.25rem]",
+};
+
+export function laneTileHeight(laneCount: number, layout: LaneLayout): string {
+  const table = layout === "grid" ? GRID_HEIGHT : LIST_HEIGHT;
+  return table[laneCount] ?? (layout === "grid" ? "h-28" : "h-16");
+}
+
+function tone(result: Result | undefined, running: boolean): string {
+  if (result) {
+    return result.status === "OK"
+      ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100"
+      : "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100";
+  }
+  return running
+    ? "bg-red-600 text-white active:bg-red-700"
+    : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200";
+}
+
+export function LaneTile({
+  lane,
+  swimmer,
+  result,
+  running,
+  clockRunning,
+  layout,
+  laneCount,
+  onStop,
+  onEdit,
+  onAssign,
+}: {
+  lane: number;
+  swimmer?: Swimmer;
+  result?: Result;
+  running: boolean;
+  clockRunning: boolean;
+  layout: LaneLayout;
+  laneCount: number;
+  onStop: () => void;
+  onEdit: () => void;
+  onAssign: () => void;
+}) {
+  const height = laneTileHeight(laneCount, layout);
+  const isList = layout !== "grid";
+
+  if (!swimmer) {
+    return (
+      <button
+        type="button"
+        disabled={clockRunning}
+        onClick={onAssign}
+        className={`${height} flex touch-manipulation items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 text-slate-400 disabled:opacity-60 dark:border-slate-700 ${
+          isList ? "flex-row px-4" : "flex-col"
+        }`}
+      >
+        <span className="text-sm font-semibold">Lane {lane}</span>
+        <span className="text-xs">
+          {clockRunning ? "empty" : "+ Add swimmer"}
+        </span>
+      </button>
+    );
+  }
+
+  const stopped = result !== undefined;
+  const canStop = running && !stopped;
+  const value = stopped
+    ? result.status === "OK"
+      ? formatTime(result.timeMs)
+      : result.status
+    : running
+      ? "STOP"
+      : "—";
+
+  const handle = () => (canStop ? onStop() : onEdit());
+
+  if (isList) {
+    return (
+      <button
+        type="button"
+        onClick={handle}
+        className={`${height} flex w-full touch-manipulation items-center gap-3 rounded-2xl px-3 text-left transition-colors ${tone(result, running)}`}
+      >
+        <span className="w-16 shrink-0 text-center text-sm font-bold opacity-80">
+          Lane {lane}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-lg font-bold leading-tight">
+          {shortName(swimmer)}
+        </span>
+        <span className="shrink-0 text-2xl font-bold tabular-nums">{value}</span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handle}
+      className={`${height} flex touch-manipulation flex-col items-center justify-center rounded-2xl px-2 text-center transition-colors ${tone(result, running)}`}
+    >
+      <span className="text-xs font-bold opacity-70">Lane {lane}</span>
+      <span className="w-full truncate text-base font-bold leading-tight">
+        {shortName(swimmer)}
+      </span>
+      <span className="mt-0.5 text-2xl font-bold leading-none tabular-nums">
+        {value}
+      </span>
+    </button>
+  );
+}
