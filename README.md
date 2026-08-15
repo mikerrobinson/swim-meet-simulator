@@ -35,12 +35,18 @@ to bring them back.
 
 **Run Meet** — one heat on screen at a time.
 
+- A single panel below the lanes — within thumb reach, and a fixed height so the
+  lane buttons never shift — holds whichever of three things is current:
+  `START` before the heat, the running clock during it, and `Reset` /
+  `Next heat` once every lane is in.
 - `START` starts every occupied lane at once.
 - Each lane becomes its own big `STOP` button showing the swimmer's name; tap it
-  as they touch. The lane freezes at its time, the master clock keeps running.
-- When every lane is in, the clock turns green and holds the last finish.
+  as they touch. The lane freezes at its time while the clock keeps running.
 - `Reset` re-runs the current heat (clears its times). `Next heat` advances,
-  rolling on to the next event after the last heat.
+  rolling on to the next event after the last heat. Neither is on screen while
+  swimmers are still in the water, so a stray tap can't end a live race.
+- `Reset` asks first, naming how many times it would erase. `Cancel` takes the
+  spot `Reset` was just in, so a double tap lands on the harmless half.
 - Tap a lane that's already stopped to type a time in, mark a DQ or no-show, or
   clear it — one missed stop button shouldn't cost the whole heat. Times are
   typed the way a scoreboard reads them, no colon required: `101.45` is 1:01.45

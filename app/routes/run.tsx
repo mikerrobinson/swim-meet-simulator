@@ -40,6 +40,7 @@ export default function RunMeet() {
   } = useMeet();
 
   const [editingLane, setEditingLane] = useState<number | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   const eventIndex = Math.min(meet.progress.eventIndex, meet.events.length - 1);
   const event = meet.events[eventIndex];
@@ -59,8 +60,6 @@ export default function RunMeet() {
   }, [event, ensureHeats]);
 
   const running = heat != null && meet.timer?.heatId === heat.id;
-  const elapsed = useElapsed(running ? meet.timer!.startedAt : null);
-  useWakeLock(running);
 
   const resultsByLane = useMemo(() => {
     const map = new Map<number, Result>();
@@ -78,17 +77,22 @@ export default function RunMeet() {
     occupiedLanes.length > 0 &&
     occupiedLanes.every((lane) => resultsByLane.has(lane));
 
-  // Once every lane is in, freeze the display at the last finish.
-  const lastFinish = Math.max(
-    0,
-    ...[...resultsByLane.values()].map((r) => r.timeMs),
-  );
-  const clockMs = running ? (allStopped ? lastFinish : elapsed) : 0;
-
-  // Swimmers are still in the water and lanes still owe a time, so nothing may
-  // navigate away. Once every lane is in the times are recorded and it's safe
-  // to move again.
+  /**
+   * The three states of the action panel below the lanes: swimmers are still
+   * in the water, the heat is complete, or nothing has been started. Exactly
+   * one of these owns that space at any moment.
+   */
   const clockRunning = running && !allStopped;
+  const heatComplete = running && allStopped;
+
+  // Anchored to the wall clock, and the frame loop stops as soon as the last
+  // lane is in — there's nothing left to animate.
+  const elapsed = useElapsed(clockRunning ? meet.timer!.startedAt : null);
+  useWakeLock(running);
+
+  useEffect(() => {
+    if (!heatComplete) setConfirmReset(false);
+  }, [heatComplete]);
 
   const goToHeat = (nextEvent: number, nextHeat: number) => {
     setProgress(nextEvent, nextHeat);
@@ -165,19 +169,6 @@ export default function RunMeet() {
         </EmptyState>
       ) : (
         <>
-          {/* Master clock */}
-          <div
-            className={`rounded-2xl py-3 text-center tabular-nums ${
-              running
-                ? allStopped
-                  ? "bg-emerald-600 text-white"
-                  : "bg-slate-900 text-white dark:bg-slate-800"
-                : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-            }`}
-          >
-            <span className="text-5xl font-bold">{formatClock(clockMs)}</span>
-          </div>
-
           {/* Lane grid */}
           <div className="grid grid-cols-2 gap-2">
             {heat.lanes.map((swimmerId, i) => {
@@ -239,8 +230,59 @@ export default function RunMeet() {
             })}
           </div>
 
-          {/* Primary action */}
-          {!running ? (
+          {/* Action panel. One fixed-height block in the easiest place to
+              reach with a thumb, holding whichever of the three states is
+              current — so the lane grid above it never shifts. */}
+          {clockRunning ? (
+            <div className="flex min-h-24 items-center justify-center rounded-2xl bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-white">
+              <span className="text-6xl font-bold leading-none tabular-nums">
+                {formatClock(elapsed)}
+              </span>
+            </div>
+          ) : heatComplete && confirmReset ? (
+            /* Cancel sits where Reset just was, so a double tap lands on the
+               harmless half rather than erasing the heat. */
+            <div className="grid min-h-24 grid-cols-2 gap-2">
+              <Button
+                size="xl"
+                className="!min-h-24 !text-xl"
+                onClick={() => setConfirmReset(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="xl"
+                className="!min-h-24 !text-xl"
+                onClick={() => {
+                  resetHeat(heat.id);
+                  setConfirmReset(false);
+                }}
+              >
+                Erase {resultsByLane.size} time
+                {resultsByLane.size === 1 ? "" : "s"}
+              </Button>
+            </div>
+          ) : heatComplete ? (
+            <div className="grid min-h-24 grid-cols-2 gap-2">
+              <Button
+                size="xl"
+                className="!min-h-24"
+                onClick={() => setConfirmReset(true)}
+              >
+                Reset
+              </Button>
+              <Button
+                variant="primary"
+                size="xl"
+                className="!min-h-24"
+                onClick={nextHeat}
+                disabled={isLastHeat}
+              >
+                {heatIndex + 1 < heats.length ? "Next heat" : "Next event"}
+              </Button>
+            </div>
+          ) : (
             <Button
               variant="success"
               size="xl"
@@ -250,20 +292,6 @@ export default function RunMeet() {
             >
               START
             </Button>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <Button size="lg" onClick={() => resetHeat(heat.id)}>
-                Reset
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={nextHeat}
-                disabled={isLastHeat}
-              >
-                {heatIndex + 1 < heats.length ? "Next heat" : "Next event"}
-              </Button>
-            </div>
           )}
 
           {!running && (
