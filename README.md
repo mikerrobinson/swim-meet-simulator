@@ -47,6 +47,13 @@ to bring them back.
   swimmers are still in the water, so a stray tap can't end a live race.
 - `Reset` asks first, naming how many times it would erase. `Cancel` takes the
   spot `Reset` was just in, so a double tap lands on the harmless half.
+- Tap an **empty lane** to pick who's swimming it. That seats them and enters
+  them in the event in one step, for the swimmer who decides while walking up
+  behind the blocks. Anyone already seeded elsewhere in the event can be moved
+  up from there; anyone who has already swum it can't. `Remove from lane` in the
+  lane sheet undoes it, dropping the entry again if they have no time in that
+  event. Empty lanes aren't tappable mid-race, so the picker can never cover the
+  `STOP` buttons.
 - Tap a lane that's already stopped to type a time in, mark a DQ or no-show, or
   clear it — one missed stop button shouldn't cost the whole heat. Times are
   typed the way a scoreboard reads them, no colon required: `101.45` is 1:01.45

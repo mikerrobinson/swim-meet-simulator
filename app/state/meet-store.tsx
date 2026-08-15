@@ -52,6 +52,8 @@ interface MeetStore {
   setEntry: (eventId: string, swimmerId: string, registered: boolean) => void;
 
   // Heats
+  assignToLane: (heatId: string, lane: number, swimmerId: string) => void;
+  clearLane: (heatId: string, lane: number) => void;
   ensureHeats: (eventId: string) => void;
   rebuildHeats: (eventId: string, options?: { shuffle?: boolean }) => void;
   setProgress: (eventIndex: number, heatIndex: number) => void;
@@ -268,6 +270,80 @@ export function MeetStoreProvider({ children }: { children: ReactNode }) {
             { ...m, entries: { ...m.entries, [eventId]: next } },
             eventId,
           );
+        }),
+
+      /**
+       * Seat a swimmer in a lane during the meet, entering them in the event if
+       * they weren't already. Deliberately does not go through `setEntry`:
+       * that invalidates the event's heats, which would delete the very heat
+       * being edited.
+       */
+      assignToLane: (heatId, lane, swimmerId) =>
+        update((m) => {
+          const target = m.heats.find((h) => h.id === heatId);
+          if (!target) return m;
+          if (lane < 1 || lane > target.lanes.length) return m;
+
+          const entered = m.entries[target.eventId] ?? [];
+
+          return {
+            ...m,
+            heats: m.heats.map((h) => {
+              if (h.eventId !== target.eventId) return h;
+              // Nobody swims an event twice, so vacate whatever lane they
+              // already held before seating them here.
+              const lanes = h.lanes.map((id) => (id === swimmerId ? null : id));
+              if (h.id === heatId) lanes[lane - 1] = swimmerId;
+              return { ...h, lanes };
+            }),
+            entries: entered.includes(swimmerId)
+              ? m.entries
+              : { ...m.entries, [target.eventId]: [...entered, swimmerId] },
+          };
+        }),
+
+      clearLane: (heatId, lane) =>
+        update((m) => {
+          const target = m.heats.find((h) => h.id === heatId);
+          const swimmerId = target?.lanes[lane - 1];
+          if (!target || !swimmerId) return m;
+          // A lane with a time on it is history; clear the time first.
+          if (m.results.some((r) => r.heatId === heatId && r.lane === lane)) {
+            return m;
+          }
+
+          const heats = m.heats.map((h) =>
+            h.id === heatId
+              ? {
+                  ...h,
+                  lanes: h.lanes.map((id, i) => (i === lane - 1 ? null : id)),
+                }
+              : h,
+          );
+
+          // Drop the entry as well, unless they hold a lane elsewhere in the
+          // event or already have a time in it — otherwise a reseed would put
+          // them straight back.
+          const seededElsewhere = heats.some(
+            (h) => h.eventId === target.eventId && h.lanes.includes(swimmerId),
+          );
+          const hasResult = m.results.some(
+            (r) => r.eventId === target.eventId && r.swimmerId === swimmerId,
+          );
+
+          return {
+            ...m,
+            heats,
+            entries:
+              seededElsewhere || hasResult
+                ? m.entries
+                : {
+                    ...m.entries,
+                    [target.eventId]: (m.entries[target.eventId] ?? []).filter(
+                      (id) => id !== swimmerId,
+                    ),
+                  },
+          };
         }),
 
       ensureHeats: (eventId) =>

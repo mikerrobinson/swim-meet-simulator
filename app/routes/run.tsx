@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import type { Route } from "./+types/run";
+import { LaneAssignSheet } from "~/components/LaneAssignSheet";
 import { Banner, Button, EmptyState, Field, Sheet, TextInput } from "~/components/ui";
 import { useElapsed, useWakeLock } from "~/hooks/use-stopwatch";
 import { heatsForEvent } from "~/lib/heats";
@@ -37,9 +38,11 @@ export default function RunMeet() {
     recordManualTime,
     setResultStatus,
     removeResult,
+    clearLane,
   } = useMeet();
 
   const [editingLane, setEditingLane] = useState<number | null>(null);
+  const [assigningLane, setAssigningLane] = useState<number | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
 
   const eventIndex = Math.min(meet.progress.eventIndex, meet.events.length - 1);
@@ -97,6 +100,7 @@ export default function RunMeet() {
   const goToHeat = (nextEvent: number, nextHeat: number) => {
     setProgress(nextEvent, nextHeat);
     setEditingLane(null);
+    setAssigningLane(null);
   };
 
   const nextHeat = () => {
@@ -179,13 +183,18 @@ export default function RunMeet() {
 
               if (!swimmer) {
                 return (
-                  <div
+                  <button
                     key={lane}
-                    className={`${height} flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 text-slate-400 dark:border-slate-700`}
+                    type="button"
+                    disabled={clockRunning}
+                    onClick={() => setAssigningLane(lane)}
+                    className={`${height} flex touch-manipulation flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 text-slate-400 disabled:opacity-60 dark:border-slate-700`}
                   >
                     <span className="text-sm font-semibold">Lane {lane}</span>
-                    <span className="text-xs">empty</span>
-                  </div>
+                    <span className="text-xs">
+                      {clockRunning ? "empty" : "+ Add swimmer"}
+                    </span>
+                  </button>
                 );
               }
 
@@ -321,6 +330,14 @@ export default function RunMeet() {
         </>
       )}
 
+      {heat && assigningLane !== null && (
+        <LaneAssignSheet
+          heat={heat}
+          lane={assigningLane}
+          onClose={() => setAssigningLane(null)}
+        />
+      )}
+
       {heat && editingLane !== null && (
         <LaneSheet
           heat={heat}
@@ -348,6 +365,10 @@ export default function RunMeet() {
             if (existing) removeResult(existing.id);
             setEditingLane(null);
           }}
+          onRemoveFromLane={() => {
+            clearLane(heat.id, editingLane);
+            setEditingLane(null);
+          }}
         />
       )}
     </div>
@@ -367,6 +388,7 @@ function LaneSheet({
   onSaveTime,
   onStatus,
   onClear,
+  onRemoveFromLane,
 }: {
   heat: Heat;
   lane: number;
@@ -376,6 +398,7 @@ function LaneSheet({
   onSaveTime: (timeMs: number) => void;
   onStatus: (status: "OK" | "DQ" | "NS") => void;
   onClear: () => void;
+  onRemoveFromLane: () => void;
 }) {
   const [value, setValue] = useState(
     result && result.status === "OK" ? formatTime(result.timeMs) : "",
@@ -438,9 +461,15 @@ function LaneSheet({
               Mark no-show
             </Button>
           </div>
-          {result && (
+          {result ? (
             <Button variant="ghost" full onClick={onClear}>
               Clear this lane's time
+            </Button>
+          ) : (
+            /* Undo for a wrong pick. Only offered while the lane has no time
+               on it — otherwise clear the time first. */
+            <Button variant="ghost" full onClick={onRemoveFromLane}>
+              Remove from lane
             </Button>
           )}
         </div>
