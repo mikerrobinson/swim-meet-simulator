@@ -34,7 +34,7 @@ export default function Shell() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <header className="sticky top-0 z-30 h-[var(--app-header-h)] border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+      <header className="sticky top-0 z-30 h-[var(--app-chrome-top)] pt-[env(safe-area-inset-top)] border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
         <div className="mx-auto flex h-full max-w-3xl items-center justify-between gap-3 px-4">
           <h1 className="truncate text-base font-bold">
             {meet?.name ?? "Meet Runner"}

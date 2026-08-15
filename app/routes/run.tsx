@@ -85,6 +85,11 @@ export default function RunMeet() {
   );
   const clockMs = running ? (allStopped ? lastFinish : elapsed) : 0;
 
+  // Swimmers are still in the water and lanes still owe a time, so nothing may
+  // navigate away. Once every lane is in the times are recorded and it's safe
+  // to move again.
+  const clockRunning = running && !allStopped;
+
   const goToHeat = (nextEvent: number, nextHeat: number) => {
     setProgress(nextEvent, nextHeat);
     setEditingLane(null);
@@ -124,7 +129,7 @@ export default function RunMeet() {
         <Button
           size="md"
           aria-label="Previous event"
-          disabled={eventIndex === 0}
+          disabled={clockRunning || eventIndex === 0}
           onClick={() => goToHeat(eventIndex - 1, 0)}
         >
           ‹
@@ -141,7 +146,7 @@ export default function RunMeet() {
         <Button
           size="md"
           aria-label="Next event"
-          disabled={eventIndex + 1 >= meet.events.length}
+          disabled={clockRunning || eventIndex + 1 >= meet.events.length}
           onClick={() => goToHeat(eventIndex + 1, 0)}
         >
           ›
@@ -171,11 +176,6 @@ export default function RunMeet() {
             }`}
           >
             <span className="text-5xl font-bold">{formatClock(clockMs)}</span>
-            {allStopped && (
-              <span className="mt-1 block text-sm font-semibold">
-                All lanes in
-              </span>
-            )}
           </div>
 
           {/* Lane grid */}
@@ -352,17 +352,12 @@ function LaneSheet({
   const [value, setValue] = useState(
     result && result.status === "OK" ? formatTime(result.timeMs) : "",
   );
-  const [error, setError] = useState<string | null>(null);
   const empty = heat.lanes[lane - 1] === null;
 
-  const save = () => {
-    const parsed = parseTime(value);
-    if (parsed === null) {
-      setError('Enter a time like "28.91" or "1:23.45".');
-      return;
-    }
-    onSaveTime(parsed);
-  };
+  // Parsed on every keystroke so the sheet can show what will actually be
+  // saved — "101.45" becoming 1:01.45 should never be a surprise.
+  const parsed = parseTime(value);
+  const typed = value.trim() !== "";
 
   return (
     <Sheet open title={`Lane ${lane} · ${swimmerLabel}`} onClose={onClose}>
@@ -370,20 +365,41 @@ function LaneSheet({
         <p className="text-slate-500">This lane is empty for this heat.</p>
       ) : (
         <div className="space-y-3">
-          <Field label="Time" hint="Type it in if the stopwatch missed the touch.">
+          <Field
+            label="Time"
+            hint={'No colon needed \u2014 "101.45" saves as 1:01.45.'}
+          >
             <TextInput
               value={value}
-              onChange={(e) => {
-                setValue(e.target.value);
-                setError(null);
-              }}
+              onChange={(e) => setValue(e.target.value)}
               inputMode="decimal"
-              placeholder="1:23.45"
+              placeholder="101.45"
               autoFocus
             />
           </Field>
-          {error && <Banner tone="error">{error}</Banner>}
-          <Button variant="primary" size="lg" full onClick={save}>
+
+          {typed &&
+            (parsed !== null ? (
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Saves as{" "}
+                <strong className="text-base tabular-nums text-slate-900 dark:text-white">
+                  {formatTime(parsed)}
+                </strong>
+              </p>
+            ) : (
+              <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+                Can&rsquo;t read that as a time. Try 28.91, or 101.45 for
+                1:01.45.
+              </p>
+            ))}
+
+          <Button
+            variant="primary"
+            size="lg"
+            full
+            disabled={parsed === null}
+            onClick={() => parsed !== null && onSaveTime(parsed)}
+          >
             Save time
           </Button>
           <div className="grid grid-cols-2 gap-2">

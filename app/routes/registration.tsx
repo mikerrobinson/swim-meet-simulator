@@ -75,7 +75,7 @@ export default function Registration() {
       className="-mt-4 flex flex-col"
       style={{
         maxHeight:
-          "calc(100dvh - var(--app-header-h) - var(--app-chrome-bottom) - 1rem)",
+          "calc(100dvh - var(--app-chrome-top) - var(--app-chrome-bottom) - 1rem)",
       }}
     >
       {SHOW_ROSTER_CONTROLS && (

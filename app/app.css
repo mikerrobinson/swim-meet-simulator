@@ -12,6 +12,10 @@
      shell stays the single source of truth. */
   --app-header-h: 3rem;
   --app-nav-h: 3.5rem;
+  /* The safe-area insets are 0 in a browser tab and non-zero once the app is
+     launched from the home screen, where there's no browser chrome between the
+     page and the notch or the home bar. */
+  --app-chrome-top: calc(var(--app-header-h) + env(safe-area-inset-top));
   --app-chrome-bottom: calc(var(--app-nav-h) + env(safe-area-inset-bottom));
 }
 

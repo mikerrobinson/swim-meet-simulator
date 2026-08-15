@@ -42,10 +42,49 @@ to bring them back.
 - `Reset` re-runs the current heat (clears its times). `Next heat` advances,
   rolling on to the next event after the last heat.
 - Tap a lane that's already stopped to type a time in, mark a DQ or no-show, or
-  clear it — one missed stop button shouldn't cost the whole heat.
+  clear it — one missed stop button shouldn't cost the whole heat. Times are
+  typed the way a scoreboard reads them, no colon required: `101.45` is 1:01.45
+  and `28.91` is 28.91. The sheet shows what it will save as you type.
+- The event arrows are locked while a heat is still in the water, so a stray tap
+  can't throw away a running race. They unlock once every lane is in.
 
 **Results** shows each event ranked across all its heats, and exports a results
 CSV or a full JSON backup.
+
+## Adding it to a home screen
+
+On the iPhone or iPad, open the site in Safari and pick **Share → Add to Home
+Screen**. It launches without the address bar or tabs, which is worth roughly
+another heat's worth of rows on the registration grid. Android and desktop
+Chrome offer the same thing via the install prompt.
+
+`public/manifest.webmanifest` declares `display: standalone`, and `app/root.tsx`
+carries the `apple-*` meta tags plus the touch icon iOS needs — without one it
+uses a screenshot of the page as the icon. Icons are generated, not hand-drawn;
+see "Regenerating the icons" below.
+
+Two things to know:
+
+- **The installed app has its own storage.** iOS keeps home-screen web apps in a
+  separate container from Safari, so a meet you set up in the browser won't be
+  in the installed app. Push it to the server first, then pull it down from the
+  server list on the first launch.
+- **It isn't offline-capable yet.** Once loaded, everything runs locally, but
+  the first load of a session still fetches the page from the server. There's no
+  service worker, so launching from the home screen with no signal at all will
+  fail. Load the app once on the way to the pool and it'll be fine.
+
+### Regenerating the icons
+
+```sh
+npm run icons
+```
+
+`scripts/make-icons.mjs` writes `public/icon-*.png` directly — Node's `zlib` is
+all a PNG encoder actually needs, so there's no image library in the dependency
+tree. To change the artwork, edit `waveCoverage` and re-run. Or ignore the
+script and drop in real exports at 180, 192, and 512 px, plus a 512 px maskable
+version that keeps its content inside the middle 80%.
 
 ## How it's put together
 

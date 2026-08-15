@@ -11,6 +11,13 @@ import type { Route } from "./+types/root";
 import { MeetStoreProvider } from "./state/meet-store";
 import "./app.css";
 
+/**
+ * Assets in `public/` are served under the router basename, so home-screen
+ * icons and the manifest have to be addressed through it — a bare "/icon.png"
+ * would 404 in production.
+ */
+const base = import.meta.env.BASE_URL;
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -21,9 +28,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
+
+        {/* Home-screen install. iOS reads the apple-* tags; everything else
+            reads the manifest. Without an apple-touch-icon iOS would use a
+            screenshot of the page as the icon. */}
+        <link rel="manifest" href={`${base}manifest.webmanifest`} />
+        <link rel="apple-touch-icon" href={`${base}icon-180.png`} />
+        <link rel="icon" type="image/png" sizes="192x192" href={`${base}icon-192.png`} />
+        <link rel="icon" href={`${base}favicon.ico`} sizes="any" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="Meet Runner" />
+        {/* "default" keeps the web view below the status bar, so the layout
+            needs no special case; the status bar picks up theme-color. */}
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="application-name" content="Meet Runner" />
+
         <meta
           name="theme-color"
           content="#f8fafc"
