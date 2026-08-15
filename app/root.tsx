@@ -8,6 +8,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
+import { AutoSyncProvider } from "./state/auto-sync";
 import { MeetStoreProvider } from "./state/meet-store";
 import "./app.css";
 
@@ -69,7 +70,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <MeetStoreProvider>
-      <Outlet />
+      <AutoSyncProvider>
+        <Outlet />
+      </AutoSyncProvider>
     </MeetStoreProvider>
   );
 }

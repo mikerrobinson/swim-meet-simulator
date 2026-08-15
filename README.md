@@ -5,8 +5,8 @@ enter swimmers in events, then work through the meet heat by heat with a
 multi-lane stopwatch. Individual events only — no relays.
 
 Local-first. Everything lives on the device, so the app keeps working on a pool
-deck with no signal. Syncing to the server is a button you press when you want
-a backup.
+deck with no signal. It backs itself up to the server in the background as you
+go, and catches up on its own once signal returns.
 
 ## The three modes
 
@@ -135,6 +135,35 @@ Whole-document push/pull against D1, resolved by `updatedAt` — a push older th
 what the server holds is rejected rather than applied, so a stale tab on another
 device can't clobber the live copy. The table is created on first use; there's
 no migration step.
+
+`app/state/auto-sync.tsx` pushes on its own, and is built to stay off the render
+path:
+
+- **Debounced ~2.5s.** Editing restarts the clock, so a burst of taps becomes one
+  request. A full heat — start plus six lane stops — is seven changes to the
+  document and one PUT.
+- **One request at a time.** Anything edited mid-flight stays pending (the push
+  marks only the revision it actually sent) and goes out on the next pass, so
+  there's no queue to grow.
+- **Backs off on failure** (4s → 10s → 30s → 60s) rather than hammering dead pool
+  wifi, and retries immediately on `online` or when the tab comes back — the two
+  moments actually worth retrying.
+- **Gives up on 503/401.** A missing database or a bad token won't fix itself;
+  the header reads "Local only" and nothing is retried until you push by hand.
+- **Push only.** Auto-pulling would let the server overwrite deck work behind
+  your back, so pulling stays a deliberate button.
+- **Switchable per device.** Sync → Auto-sync turns it off, after which nothing
+  leaves the device until you tap *Push now*; the header falls back to
+  Synced / Not synced. The preference lives in localStorage rather than in the
+  meet, so switching it off on the phone doesn't switch it off on the iPad —
+  and doesn't itself become a change that needs syncing. Turning it back on
+  pushes immediately rather than waiting out the debounce.
+
+The header chip shows the live state: Synced / Saving… / Retrying… / Local only.
+
+One consequence worth knowing: whichever device last touched a meet wins. That
+was true of the manual push too, but automatic pushing makes it easier to hit if
+you leave the app open on a second device.
 
 | Route | Purpose |
 | --- | --- |

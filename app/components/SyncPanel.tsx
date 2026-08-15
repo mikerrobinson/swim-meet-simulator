@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Banner, Button, Card, EmptyState, SectionTitle, TextInput } from "./ui";
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  SectionTitle,
+  Segmented,
+  TextInput,
+} from "./ui";
 import { loadSyncToken, saveSyncToken } from "~/lib/storage";
 import {
   listMeets,
@@ -8,6 +17,7 @@ import {
   syncStatus,
   type MeetSummary,
 } from "~/lib/sync";
+import { useSyncStatus } from "~/state/auto-sync";
 import { useMeetStore } from "~/state/meet-store";
 
 function relative(timestamp: number | null): string {
@@ -21,6 +31,7 @@ function relative(timestamp: number | null): string {
 
 export function SyncPanel() {
   const { meet, markSynced, replaceMeet } = useMeetStore();
+  const auto = useSyncStatus();
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [reason, setReason] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
@@ -98,6 +109,8 @@ export function SyncPanel() {
       const response = await pushMeet(meet);
       markSynced(meet.updatedAt);
       setRemote(null);
+      // Clears any backoff the background sync had settled into.
+      auto.syncNow();
       return response.applied
         ? "Pushed to the server."
         : "Server already had a newer copy — nothing overwritten.";
@@ -148,12 +161,23 @@ export function SyncPanel() {
       {hasMeet && (
         <>
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            Last synced {relative(meet.syncedAt)}
-            {dirty && " — you have local changes."}
+            {auto.phase === "unavailable"
+              ? "Server sync is unavailable — this meet is saved on the device only."
+              : !auto.enabled
+                ? `Auto-sync is off. ${
+                    auto.pending
+                      ? "This device has changes the server doesn't have."
+                      : `Last pushed ${relative(meet.syncedAt)}.`
+                  }`
+                : auto.phase === "error"
+                  ? `Couldn't reach the server, retrying. Last synced ${relative(meet.syncedAt)}.`
+                  : auto.pending || auto.phase === "syncing"
+                    ? "Saving to the server…"
+                    : `Saved to the server ${relative(meet.syncedAt)}. Changes sync on their own.`}
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <Button variant="primary" onClick={handlePush} disabled={busy}>
-              Push to server
+              Push now
             </Button>
             <Button onClick={handlePullCurrent} disabled={busy}>
               Pull this meet
@@ -164,6 +188,24 @@ export function SyncPanel() {
             <strong>{meet.name}</strong>. To open a different meet, pick one
             from the list below.
           </p>
+
+          {auto.phase !== "unavailable" && (
+            <div className="mt-4">
+              <Field
+                label="Auto-sync"
+                hint="On: this device backs the meet up a couple of seconds after each change. Off: nothing leaves the device until you tap Push now. Set per device, so turning it off here won't affect your other one."
+              >
+                <Segmented
+                  value={auto.enabled ? "on" : "off"}
+                  onChange={(value) => auto.setEnabled(value === "on")}
+                  options={[
+                    { value: "on", label: "On" },
+                    { value: "off", label: "Off" },
+                  ]}
+                />
+              </Field>
+            </div>
+          )}
         </>
       )}
 

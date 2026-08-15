@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { syncLabel, useSyncStatus } from "~/state/auto-sync";
 import { useMeetStore } from "~/state/meet-store";
 
 const TABS = [
@@ -9,6 +10,13 @@ const TABS = [
   { to: "/run", label: "Run", end: false, icon: "⏱️" },
   { to: "/results", label: "Results", end: false, icon: "🏅" },
 ];
+
+const CHIP_TONES: Record<string, string> = {
+  good: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
+  busy: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200",
+  warn: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
+  muted: "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+};
 
 export default function Shell() {
   const { ready, meet } = useMeetStore();
@@ -30,7 +38,8 @@ export default function Shell() {
     );
   }
 
-  const unsynced = meet !== null && meet.syncedAt !== meet.updatedAt;
+  const status = useSyncStatus();
+  const chip = syncLabel(status);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -41,13 +50,9 @@ export default function Shell() {
           </h1>
           {meet && (
             <span
-              className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${
-                unsynced
-                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200"
-                  : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-              }`}
+              className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${CHIP_TONES[chip.tone]}`}
             >
-              {unsynced ? "Not synced" : "Synced"}
+              {chip.text}
             </span>
           )}
         </div>
